@@ -22,7 +22,7 @@ export class XRManager {
         const arButton = ARButton.createButton(this.gameManager.renderer, { 
             requiredFeatures: ['hit-test'],
             optionalFeatures: ['dom-overlay'],
-            domOverlay: { root: uiContainer }
+            domOverlay: { root: uiContainer ?? document.body }
         });
         
         // ARButton独自の絶対配置スタイルを上書きして自然に並べる
@@ -60,15 +60,12 @@ export class XRManager {
             if (this.reticle) this.reticle.visible = false;
         });
 
-        // 既存の AnimationLoop を一時保存
-        const originalRender = this.gameManager.renderer.getAnimationLoop();
-        
-        // Custom Render Loop with HitTest
-        this.gameManager.renderer.setAnimationLoop((time, frame) => {
+        // GameManager の単一レンダーループにhit-test処理を登録する
+        // （独自にsetAnimationLoopを上書きすると既存ループを潰してしまうため）
+        this.gameManager.onFrame((_time, frame) => {
             if (frame) {
                 this.updateHitTest(this.gameManager.renderer, frame);
             }
-            if (originalRender) originalRender(time, frame);
         });
     }
 

@@ -10,15 +10,15 @@ class App {
     private gameManager: GameManager;
     private xrManager: XRManager;
     private gameSystem: GameSystem;
-    private interactionManager: InteractionManager;
 
     constructor() {
         this.uiManager = new UIManager();
         this.gameSystem = new GameSystem(this.uiManager);
-        this.gameManager = new GameManager(this.uiManager);
+        this.gameManager = new GameManager();
         this.xrManager = new XRManager(this.gameManager);
-        this.interactionManager = new InteractionManager(this.gameManager, this.xrManager, this.gameSystem);
-        
+        // InteractionManager wires up the gameplay event listeners on construction.
+        new InteractionManager(this.gameManager, this.xrManager, this.gameSystem);
+
         this.init();
     }
 
@@ -26,7 +26,5 @@ class App {
         console.log('AR Stress Relief Game initialized');
     }
 }
-
-new App();
 
 new App();
