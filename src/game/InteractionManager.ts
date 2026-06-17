@@ -3,6 +3,8 @@ import * as CANNON from 'cannon-es';
 import { GameManager } from './GameManager';
 import { XRManager } from '../ar/XRManager';
 import { GameSystem, GameState } from './GameSystem';
+import { getWeapon, getTarget } from './Items';
+import type { WeaponDef, TargetDef } from './Items';
 
 export class InteractionManager {
     private gameManager: GameManager;
@@ -10,23 +12,26 @@ export class InteractionManager {
     private gameSystem: GameSystem;
 
     // 物理マテリアルの定義
-    private physicsMaterial = new CANNON.Material("standard");
+    private physicsMaterial = new CANNON.Material('standard');
+
+    // AR用の見えない地面。検出した平面の高さ(Y)に合わせて毎回移動させる
+    private groundBody: CANNON.Body;
 
     constructor(gameManager: GameManager, xrManager: XRManager, gameSystem: GameSystem) {
         this.gameManager = gameManager;
         this.xrManager = xrManager;
         this.gameSystem = gameSystem;
 
-        this.setupPhysicsContact();
+        this.groundBody = this.setupPhysicsContact();
         this.setupEventListeners();
     }
 
-    private setupPhysicsContact() {
+    private setupPhysicsContact(): CANNON.Body {
         // 地面用とオブジェクト用の接触設定 (反発係数など)
         const contactMaterial = new CANNON.ContactMaterial(
             this.physicsMaterial,
             this.physicsMaterial,
-            { friction: 0.5, restitution: 0.3 }
+            { friction: 0.5, restitution: 0.3 },
         );
         this.gameManager.physicsManager.world.addContactMaterial(contactMaterial);
 
@@ -34,9 +39,15 @@ export class InteractionManager {
         const groundShape = new CANNON.Plane();
         const groundBody = new CANNON.Body({ mass: 0, material: this.physicsMaterial });
         groundBody.addShape(groundShape);
-        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // X軸に90度回転
-        // HitTestの基準面に合わせるため、Y=0に配置
+        groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0); // X軸に90度回転して水平面にする
+        // 初期位置は Y=0。実際の床の高さは hit-test 検出時に updateGroundHeight() で合わせる
         this.gameManager.physicsManager.world.addBody(groundBody);
+        return groundBody;
+    }
+
+    // 検出した平面のYに地面を合わせる（オブジェクトが浮く／沈む問題の対策）
+    private updateGroundHeight(surfaceY: number) {
+        this.groundBody.position.set(0, surfaceY, 0);
     }
 
     private setupEventListeners() {
@@ -44,8 +55,8 @@ export class InteractionManager {
         const shootBtn = document.getElementById('shoot-btn');
 
         spawnBtn?.addEventListener('click', () => {
-            this.spawnTarget();
-            this.gameSystem.setState(GameState.SHOOTING);
+            const placed = this.spawnTarget();
+            if (placed) this.gameSystem.setState(GameState.SHOOTING);
         });
 
         shootBtn?.addEventListener('click', () => {
@@ -53,109 +64,165 @@ export class InteractionManager {
         });
     }
 
-    private spawnTarget() {
+    private spawnTarget(): boolean {
         const matrix = this.xrManager.getReticleMatrix();
         if (!matrix) {
-            alert("平面が認識されていません。カメラを動かして緑のマークが出てからお試しください。");
-            return;
+            alert('平面が認識されていません。カメラを動かして緑のマークが出てからお試しください。');
+            return false;
         }
 
         const position = new THREE.Vector3();
         position.setFromMatrixPosition(matrix);
 
-        let mesh: THREE.Mesh;
-        let shape: CANNON.Shape;
-        let mass = 1;
+        // 検出した平面の高さに地面を合わせる（浮き防止）
+        this.updateGroundHeight(position.y);
 
-        if (this.gameSystem.currentTarget === 'barrel') {
-            const radius = 0.15;
-            const height = 0.4;
-            const geometry = new THREE.CylinderGeometry(radius, radius, height, 16);
-            const material = new THREE.MeshLambertMaterial({ color: 0xff3333 });
-            mesh = new THREE.Mesh(geometry, material);
-            mesh.position.copy(position);
-            mesh.position.y += height / 2;
-            shape = new CANNON.Cylinder(radius, radius, height, 16);
-            mass = 2; 
-        } else {
-            const size = 0.2;
-            const geometry = new THREE.BoxGeometry(size, size, size);
-            const material = new THREE.MeshLambertMaterial({ color: 0x8b5a2b });
-            mesh = new THREE.Mesh(geometry, material);
-            mesh.position.copy(position);
-            mesh.position.y += size / 2;
-            shape = new CANNON.Box(new CANNON.Vec3(size / 2, size / 2, size / 2));
-        }
+        const def = getTarget(this.gameSystem.currentTarget);
+        const { mesh, shape, centerOffsetY } = this.createTargetVisual(def, position);
 
         const body = new CANNON.Body({
-            mass: mass,
+            mass: def.mass,
             material: this.physicsMaterial,
-            position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z)
+            position: new CANNON.Vec3(position.x, position.y + centerOffsetY, position.z),
         });
-        
-        // cannon-esでのCylinderはデフォルトでZ軸方向を向くため、Y軸方向に立てるために回転させる
-        if (this.gameSystem.currentTarget === 'barrel') {
-            // ただし新しいcannon-esではQuaternionでShapeの向きを調整する必要はないかもしれない。
-            // ひとまず回転を加えずにそのままaddShapeし、必要なら後で修正
-            body.addShape(shape);
-            // 倒れないように少し慣性モーメントを弄るか、そのままにする
-        } else {
-            body.addShape(shape);
+        body.addShape(shape);
+
+        // ドローンは少し浮いた状態から始める（SF演出）
+        if (def.id === 'drone') {
+            body.position.y += 0.3;
+            mesh.position.y += 0.3;
         }
 
         // ポイント加算の多重発生を防ぐためのフラグ
         let scored = false;
-        body.addEventListener("collide", (e: any) => {
-            if (scored) return;
+        body.addEventListener('collide', (e: any) => {
             const relativeVelocity = e.contact.getImpactVelocityAlongNormal();
-            if(Math.abs(relativeVelocity) > 2) {
-                const points = this.gameSystem.currentTarget === 'barrel' ? 30 : 10;
-                this.gameSystem.addScore(points);
-                scored = true; // 1つのターゲットにつきポイント加算は1回（あるいは時間制限）にする
-                setTimeout(() => { scored = false; }, 1000); // 1秒後に再度加算可能に
+            if (Math.abs(relativeVelocity) > 2 && !scored) {
+                scored = true;
+                this.gameSystem.addScore(def.points);
+
+                // 爆発系の標的は連鎖爆発を起こす
+                if (def.explosive) {
+                    this.gameManager.applyExplosion(body.position, def.explosionRadius, def.explosionForce);
+                }
             }
         });
 
-        this.gameManager.addPhysicsObject(mesh, body);
+        this.gameManager.addPhysicsObject(mesh, body, 'target');
+        return true;
+    }
+
+    // 標的の見た目（Mesh）と物理形状（Shape）を定義から生成する
+    private createTargetVisual(
+        def: TargetDef,
+        position: THREE.Vector3,
+    ): { mesh: THREE.Mesh; shape: CANNON.Shape; centerOffsetY: number } {
+        let geometry: THREE.BufferGeometry;
+        let shape: CANNON.Shape;
+        let centerOffsetY: number;
+
+        switch (def.shape) {
+            case 'cylinder': {
+                geometry = new THREE.CylinderGeometry(def.size, def.size, def.height, 20);
+                shape = new CANNON.Cylinder(def.size, def.size, def.height, 20);
+                centerOffsetY = def.height / 2;
+                break;
+            }
+            case 'sphere': {
+                geometry = new THREE.SphereGeometry(def.size, 20, 20);
+                shape = new CANNON.Sphere(def.size);
+                centerOffsetY = def.size;
+                break;
+            }
+            case 'crystal': {
+                geometry = new THREE.IcosahedronGeometry(def.size, 0);
+                // 物理は近似で球を使う
+                shape = new CANNON.Sphere(def.size);
+                centerOffsetY = def.size;
+                break;
+            }
+            case 'box':
+            default: {
+                geometry = new THREE.BoxGeometry(def.size, def.size, def.size);
+                shape = new CANNON.Box(new CANNON.Vec3(def.size / 2, def.size / 2, def.size / 2));
+                centerOffsetY = def.size / 2;
+                break;
+            }
+        }
+
+        const material = new THREE.MeshStandardMaterial({
+            color: def.color,
+            emissive: def.emissive,
+            emissiveIntensity: def.emissive ? 0.8 : 0,
+            metalness: 0.3,
+            roughness: 0.6,
+        });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.position.set(position.x, position.y + centerOffsetY, position.z);
+        return { mesh, shape, centerOffsetY };
     }
 
     private shootWeapon() {
-        const camera = this.gameManager.camera;
-        
-        let radius = 0.05;
-        let color = 0xff0000;
-        let shootSpeed = 10;
-        let mass = 0.5;
+        const def = getWeapon(this.gameSystem.currentWeapon);
 
-        if (this.gameSystem.currentWeapon === 'machineGun') {
-            radius = 0.02;
-            color = 0xffff00;
-            shootSpeed = 25;
-            mass = 0.1;
+        // XRカメラの実際のワールド姿勢を使う（背景が消える＝弾が原点に湧く問題の対策）
+        const { position: camPos, quaternion: camQuat } = this.gameManager.getCameraPose();
+        const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
+
+        // burst 発分の弾を生成（マシンガン/散弾対応）
+        for (let i = 0; i < def.burst; i++) {
+            this.spawnProjectile(def, camPos, forward);
         }
+    }
 
-        const geometry = new THREE.SphereGeometry(radius, 16, 16);
-        const material = new THREE.MeshLambertMaterial({ color: color });
+    private spawnProjectile(
+        def: WeaponDef,
+        camPos: THREE.Vector3,
+        forward: THREE.Vector3,
+    ) {
+        const geometry = new THREE.SphereGeometry(def.radius, 16, 16);
+        const material = new THREE.MeshStandardMaterial({
+            color: def.color,
+            emissive: def.emissive,
+            emissiveIntensity: def.emissive ? 1.0 : 0,
+            metalness: 0.4,
+            roughness: 0.4,
+        });
         const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.copy(camera.position);
-        
-        const shape = new CANNON.Sphere(radius);
+
+        // カメラの少し前方から発射する（視界を覆わないように）
+        const startPos = camPos.clone().add(forward.clone().multiplyScalar(0.3));
+        mesh.position.copy(startPos);
+
+        const shape = new CANNON.Sphere(def.radius);
         const body = new CANNON.Body({
-            mass: mass,
+            mass: def.mass,
             material: this.physicsMaterial,
-            position: new CANNON.Vec3(mesh.position.x, mesh.position.y, mesh.position.z)
+            position: new CANNON.Vec3(startPos.x, startPos.y, startPos.z),
         });
         body.addShape(shape);
 
-        const direction = new THREE.Vector3(0, 0, -1);
-        direction.applyQuaternion(camera.quaternion);
-        
-        body.velocity.set(
-            direction.x * shootSpeed,
-            direction.y * shootSpeed,
-            direction.z * shootSpeed
-        );
+        // 拡散を加味した発射方向
+        const dir = forward.clone();
+        if (def.spread > 0) {
+            dir.x += (Math.random() - 0.5) * def.spread;
+            dir.y += (Math.random() - 0.5) * def.spread;
+            dir.z += (Math.random() - 0.5) * def.spread;
+            dir.normalize();
+        }
+        // dir は既にワールド座標系の向きなので追加の回転は不要
+        body.velocity.set(dir.x * def.speed, dir.y * def.speed, dir.z * def.speed);
 
-        this.gameManager.addPhysicsObject(mesh, body);
+        // 爆発系の武器は着弾時に周囲を吹き飛ばす
+        if (def.explosive) {
+            let exploded = false;
+            body.addEventListener('collide', () => {
+                if (exploded) return;
+                exploded = true;
+                this.gameManager.applyExplosion(body.position, def.explosionRadius, def.explosionForce);
+            });
+        }
+
+        this.gameManager.addPhysicsObject(mesh, body, 'projectile');
     }
 }

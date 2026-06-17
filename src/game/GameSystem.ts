@@ -1,4 +1,6 @@
 import { UIManager } from '../ui/UIManager';
+import { WEAPONS, TARGETS, getWeapon, getTarget } from './Items';
+import type { WeaponDef, TargetDef } from './Items';
 
 // erasableSyntaxOnly が有効なため enum ではなく const オブジェクト + union 型で表現する
 export const GameState = {
@@ -8,6 +10,16 @@ export const GameState = {
 } as const;
 export type GameState = typeof GameState[keyof typeof GameState];
 
+// localStorage 保存キー（プレイをまたいでポイント・購入アイテムを保持する）
+const STORAGE_KEY = 'argame01_save_v1';
+
+interface SaveData {
+    points: number;
+    unlocked: string[];
+    equippedWeapon: string;
+    equippedTarget: string;
+}
+
 export class GameSystem {
     private score: number = 0;
     public state: GameState = GameState.PLACING;
@@ -16,18 +28,58 @@ export class GameSystem {
     public currentWeapon: string = 'ball';
     public currentTarget: string = 'box';
 
+    // 初期解放アイテム（コスト 0 のもの）
     public unlockedItems: Set<string> = new Set(['ball', 'box']);
 
     constructor(uiManager: UIManager) {
         this.uiManager = uiManager;
+        this.load();
+        this.uiManager.buildShop(WEAPONS, TARGETS, {
+            onBuy: (id, kind) => this.buy(id, kind),
+            onEquip: (id, kind) => this.equip(id, kind),
+        });
         this.updateUI();
-        this.setupShopListeners();
+        this.refreshShopUI();
     }
 
+    // === 永続化 ===
+    private load() {
+        try {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+            const data = JSON.parse(raw) as SaveData;
+            this.score = data.points ?? 0;
+            this.unlockedItems = new Set(data.unlocked ?? ['ball', 'box']);
+            // 念のため初期アイテムは常に解放扱いにする
+            this.unlockedItems.add('ball');
+            this.unlockedItems.add('box');
+            this.currentWeapon = data.equippedWeapon ?? 'ball';
+            this.currentTarget = data.equippedTarget ?? 'box';
+        } catch (e) {
+            console.warn('セーブデータの読み込みに失敗しました', e);
+        }
+    }
+
+    private save() {
+        const data: SaveData = {
+            points: this.score,
+            unlocked: Array.from(this.unlockedItems),
+            equippedWeapon: this.currentWeapon,
+            equippedTarget: this.currentTarget,
+        };
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+        } catch (e) {
+            console.warn('セーブデータの保存に失敗しました', e);
+        }
+    }
+
+    // === スコア／ポイント ===
     public addScore(points: number) {
         this.score += points;
         this.uiManager.updateScore(this.score);
-        this.checkUnlocks();
+        this.save();
+        this.refreshShopUI();
     }
 
     public getScore() {
@@ -42,52 +94,48 @@ export class GameSystem {
     private updateUI() {
         const spawnBtn = document.getElementById('spawn-target-btn');
         const shootBtn = document.getElementById('shoot-btn');
-        
+
         if (spawnBtn && shootBtn) {
             spawnBtn.style.display = this.state === GameState.PLACING ? 'block' : 'none';
             shootBtn.style.display = this.state === GameState.SHOOTING ? 'block' : 'none';
         }
     }
 
-    private setupShopListeners() {
-        const mgBtn = document.querySelector('.buy-btn[data-id="weapon_mg"]') as HTMLButtonElement;
-        const barrelBtn = document.querySelector('.buy-btn[data-id="target_barrel"]') as HTMLButtonElement;
-
-        mgBtn?.addEventListener('click', () => {
-            if (!this.unlockedItems.has('weapon_mg') && this.score >= 100) {
-                this.score -= 100;
-                this.unlockedItems.add('weapon_mg');
-                this.currentWeapon = 'machineGun';
-                mgBtn.innerText = 'Equipped';
-                mgBtn.disabled = true;
-                this.uiManager.updateScore(this.score);
-                alert('Machine Gun unlocked and equipped!');
-            }
-        });
-
-        barrelBtn?.addEventListener('click', () => {
-            if (!this.unlockedItems.has('target_barrel') && this.score >= 50) {
-                this.score -= 50;
-                this.unlockedItems.add('target_barrel');
-                this.currentTarget = 'barrel';
-                barrelBtn.innerText = 'Equipped';
-                barrelBtn.disabled = true;
-                this.uiManager.updateScore(this.score);
-                alert('Explosive Barrel unlocked and equipped!');
-            }
-        });
+    // === 購入・装備 ===
+    private getDef(id: string, kind: 'weapon' | 'target'): WeaponDef | TargetDef {
+        return kind === 'weapon' ? getWeapon(id) : getTarget(id);
     }
 
-    private checkUnlocks() {
-        const mgBtn = document.querySelector('.buy-btn[data-id="weapon_mg"]') as HTMLButtonElement;
-        const barrelBtn = document.querySelector('.buy-btn[data-id="target_barrel"]') as HTMLButtonElement;
+    public buy(id: string, kind: 'weapon' | 'target') {
+        if (this.unlockedItems.has(id)) return;
+        const def = this.getDef(id, kind);
+        if (this.score < def.cost) return;
 
-        if (mgBtn && !this.unlockedItems.has('weapon_mg')) {
-            mgBtn.disabled = this.score < 100;
-        }
+        this.score -= def.cost;
+        this.unlockedItems.add(id);
+        this.uiManager.updateScore(this.score);
+        // 購入したらそのまま装備する
+        this.equip(id, kind);
+        this.save();
+    }
 
-        if (barrelBtn && !this.unlockedItems.has('target_barrel')) {
-            barrelBtn.disabled = this.score < 50;
+    public equip(id: string, kind: 'weapon' | 'target') {
+        if (!this.unlockedItems.has(id)) return;
+        if (kind === 'weapon') {
+            this.currentWeapon = id;
+        } else {
+            this.currentTarget = id;
         }
+        this.save();
+        this.refreshShopUI();
+    }
+
+    private refreshShopUI() {
+        this.uiManager.refreshShop(
+            this.score,
+            this.unlockedItems,
+            this.currentWeapon,
+            this.currentTarget,
+        );
     }
 }
