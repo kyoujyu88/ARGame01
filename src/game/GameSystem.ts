@@ -1,10 +1,12 @@
 import { UIManager } from '../ui/UIManager';
 
-export enum GameState {
-    IDLE,
-    PLACING,
-    SHOOTING
-}
+// erasableSyntaxOnly が有効なため enum ではなく const オブジェクト + union 型で表現する
+export const GameState = {
+    IDLE: 0,
+    PLACING: 1,
+    SHOOTING: 2,
+} as const;
+export type GameState = typeof GameState[keyof typeof GameState];
 
 export class GameSystem {
     private score: number = 0;

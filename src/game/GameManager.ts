@@ -1,20 +1,20 @@
 import * as THREE from 'three';
 import { PhysicsManager } from '../physics/PhysicsManager';
-import { UIManager } from '../ui/UIManager';
 
 export class GameManager {
     public scene: THREE.Scene;
     public camera: THREE.PerspectiveCamera;
     public renderer: THREE.WebGLRenderer;
     public physicsManager: PhysicsManager;
-    private uiManager: UIManager;
     private clock: THREE.Clock;
 
     // 同期用の配列 (Three.js Mesh と Cannon.js Body のペア)
     private physicsObjects: { mesh: THREE.Mesh, body: any }[] = [];
 
-    constructor(uiManager: UIManager) {
-        this.uiManager = uiManager;
+    // 毎フレーム呼ばれるコールバック（XRのhit-testなどが登録する）
+    private frameCallbacks: ((time: number, frame: any) => void)[] = [];
+
+    constructor() {
         this.physicsManager = new PhysicsManager();
         this.clock = new THREE.Clock();
 
@@ -57,7 +57,17 @@ export class GameManager {
         this.renderer.setSize(window.innerWidth, window.innerHeight);
     }
 
-    private render() {
+    // 毎フレーム実行したい処理を登録する（XRManagerのhit-testなど）
+    public onFrame(callback: (time: number, frame: any) => void) {
+        this.frameCallbacks.push(callback);
+    }
+
+    private render(time: number, frame: any) {
+        // 登録されたフレームコールバック（hit-test等）を先に実行
+        for (const cb of this.frameCallbacks) {
+            cb(time, frame);
+        }
+
         const dt = this.clock.getDelta();
 
         // 物理演算の更新
