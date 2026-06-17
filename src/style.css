@@ -98,6 +98,38 @@ canvas {
 
 #shop-menu.active {
   display: block;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+#shop-points {
+  float: right;
+  color: #00ffff;
+  font-size: 16px;
+}
+
+.shop-section-title {
+  margin: 12px 0 4px;
+  font-size: 14px;
+  color: #00ffff;
+  letter-spacing: 1px;
+  border-bottom: 1px solid rgba(0,255,255,0.4);
+  padding-bottom: 2px;
+}
+
+.shop-label {
+  font-size: 14px;
+  margin-right: 8px;
+}
+
+.equipped-row {
+  background: rgba(0, 255, 255, 0.08);
+  border-radius: 6px;
+}
+
+.buy-btn.equipped {
+  background: #00aa66;
+  color: #fff;
 }
 
 .shop-item {
