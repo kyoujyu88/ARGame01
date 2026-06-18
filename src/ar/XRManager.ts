@@ -30,6 +30,9 @@ export class XRManager {
         arButton.style.bottom = 'auto';
         arButton.style.left = 'auto';
         arButton.style.transform = 'none';
+        // Three.js の ARButton は高い z-index を持ち、ショップ(モーダル)を突き抜けて
+        // 前面に表示されてしまうため、低い z-index に上書きする
+        arButton.style.zIndex = '1';
         
         const container = document.getElementById('ar-button-container');
         if (container) {

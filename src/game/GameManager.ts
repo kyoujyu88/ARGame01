@@ -26,6 +26,14 @@ export class GameManager {
     // 毎フレーム呼ばれるコールバック（XRのhit-testなどが登録する）
     private frameCallbacks: ((time: number, frame: any) => void)[] = [];
 
+    // 一時的な視覚エフェクト（爆発フラッシュ・ヒットスパークなど）
+    private effects: {
+        object: THREE.Object3D;
+        age: number;
+        ttl: number;
+        onUpdate: (t: number, object: THREE.Object3D) => void;
+    }[] = [];
+
     constructor() {
         this.physicsManager = new PhysicsManager();
         this.clock = new THREE.Clock();
@@ -44,6 +52,9 @@ export class GameManager {
         this.renderer.setPixelRatio(window.devicePixelRatio);
         this.renderer.xr.enabled = true; // WebXRの有効化
         this.renderer.xr.setReferenceSpaceType('local'); // 空間認識の基準座標系を明示的に設定
+        // 影を有効化（オブジェクトが床に影を落としてリッチに見える）
+        this.renderer.shadowMap.enabled = true;
+        this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
         this.setupLights();
 
@@ -54,13 +65,28 @@ export class GameManager {
     }
 
     private setupLights() {
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        // 空と地面で色を変える環境光でメリハリを出す
+        const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444455, 0.7);
+        this.scene.add(hemiLight);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
         this.scene.add(ambientLight);
 
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        directionalLight.position.set(10, 20, 10);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        directionalLight.position.set(3, 6, 4);
         directionalLight.castShadow = true;
+        // AR スケール（数メートル）に合わせて影カメラと解像度を設定
+        directionalLight.shadow.mapSize.set(1024, 1024);
+        const cam = directionalLight.shadow.camera;
+        cam.near = 0.1;
+        cam.far = 30;
+        cam.left = -3;
+        cam.right = 3;
+        cam.top = 3;
+        cam.bottom = -3;
+        directionalLight.shadow.bias = -0.002;
         this.scene.add(directionalLight);
+        this.scene.add(directionalLight.target);
     }
 
     private onWindowResize() {
@@ -91,7 +117,39 @@ export class GameManager {
             obj.mesh.quaternion.copy(obj.body.quaternion as unknown as THREE.Quaternion);
         }
 
+        // 一時エフェクトの更新（寿命が来たら破棄）
+        for (let i = this.effects.length - 1; i >= 0; i--) {
+            const fx = this.effects[i];
+            fx.age += dt;
+            const t = Math.min(1, fx.age / fx.ttl);
+            fx.onUpdate(t, fx.object);
+            if (fx.age >= fx.ttl) {
+                this.scene.remove(fx.object);
+                this.disposeObject(fx.object);
+                this.effects.splice(i, 1);
+            }
+        }
+
         this.renderer.render(this.scene, this.camera);
+    }
+
+    // 一時的な視覚エフェクトを登録する。onUpdate は進捗 t(0→1) で毎フレーム呼ばれる
+    public addEffect(object: THREE.Object3D, ttl: number, onUpdate: (t: number, object: THREE.Object3D) => void) {
+        this.scene.add(object);
+        this.effects.push({ object, age: 0, ttl, onUpdate });
+    }
+
+    private disposeObject(object: THREE.Object3D) {
+        object.traverse((obj) => {
+            const m = obj as THREE.Mesh;
+            if (m.geometry) m.geometry.dispose();
+            const mat = m.material;
+            if (Array.isArray(mat)) {
+                mat.forEach((mm) => mm.dispose());
+            } else if (mat) {
+                mat.dispose();
+            }
+        });
     }
 
     // 外部からオブジェクトを追加するインターフェース
