@@ -51,6 +51,12 @@ export class InteractionManager {
     }
 
     private setupEventListeners() {
+        // AR を開始するたびにゲーム状態を初期化し、設置ボタンを再表示する。
+        // （前回セッションで SHOOTING のまま終了するとボタンが隠れたままになるため）
+        this.gameManager.renderer.xr.addEventListener('sessionstart', () => {
+            this.gameSystem.setState(GameState.PLACING);
+        });
+
         const spawnBtn = document.getElementById('spawn-target-btn');
         const shootBtn = document.getElementById('shoot-btn');
 

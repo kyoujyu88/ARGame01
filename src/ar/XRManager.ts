@@ -44,6 +44,10 @@ export class XRManager {
         this.gameManager.renderer.xr.addEventListener('sessionstart', () => {
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'flex';
+
+            // 発射時の照準（中央の十字レティクル）はAR中のみ表示する
+            const crosshair = document.getElementById('crosshair');
+            if (crosshair) crosshair.style.display = 'block';
         });
 
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
@@ -56,8 +60,10 @@ export class XRManager {
             if (spawnBtn) spawnBtn.style.display = 'none';
             if (shootBtn) shootBtn.style.display = 'none';
 
-            // レティクルも隠す
+            // レティクル（平面マーカー・中央照準）も隠す
             if (this.reticle) this.reticle.visible = false;
+            const crosshair = document.getElementById('crosshair');
+            if (crosshair) crosshair.style.display = 'none';
 
             // dom-overlay のフルスクリーン解除後に UI コンテナが隠れたままになり、
             // ショップを閉じると黒画面で操作不能になる端末があるため、明示的に表示を復帰させる
