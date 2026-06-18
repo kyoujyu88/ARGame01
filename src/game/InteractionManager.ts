@@ -5,17 +5,21 @@ import { XRManager } from '../ar/XRManager';
 import { GameSystem, GameState } from './GameSystem';
 import { getWeapon, getTarget } from './Items';
 import type { WeaponDef, TargetDef } from './Items';
+import { SoundManager } from '../audio/SoundManager';
 
 export class InteractionManager {
     private gameManager: GameManager;
     private xrManager: XRManager;
     private gameSystem: GameSystem;
+    private sound = new SoundManager();
 
     // 物理マテリアルの定義
     private physicsMaterial = new CANNON.Material('standard');
 
     // AR用の見えない地面。検出した平面の高さ(Y)に合わせて毎回移動させる
     private groundBody: CANNON.Body;
+    // 影を受けるための見えない床（影だけ描画する ShadowMaterial）
+    private shadowGround: THREE.Mesh;
 
     constructor(gameManager: GameManager, xrManager: XRManager, gameSystem: GameSystem) {
         this.gameManager = gameManager;
@@ -23,7 +27,20 @@ export class InteractionManager {
         this.gameSystem = gameSystem;
 
         this.groundBody = this.setupPhysicsContact();
+        this.shadowGround = this.setupShadowGround();
         this.setupEventListeners();
+    }
+
+    // 影だけを映す床を用意（オブジェクトの影が現実の床に落ちて見えるようにする）
+    private setupShadowGround(): THREE.Mesh {
+        const geometry = new THREE.PlaneGeometry(10, 10);
+        const material = new THREE.ShadowMaterial({ opacity: 0.35 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.receiveShadow = true;
+        mesh.position.y = 0;
+        this.gameManager.scene.add(mesh);
+        return mesh;
     }
 
     private setupPhysicsContact(): CANNON.Body {
@@ -48,6 +65,7 @@ export class InteractionManager {
     // 検出した平面のYに地面を合わせる（オブジェクトが浮く／沈む問題の対策）
     private updateGroundHeight(surfaceY: number) {
         this.groundBody.position.set(0, surfaceY, 0);
+        this.shadowGround.position.y = surfaceY;
     }
 
     private setupEventListeners() {
@@ -122,6 +140,11 @@ export class InteractionManager {
                 broken = true;
                 // 衝突コールバック中に world を変更すると不安定なので次のタスクで実行する
                 setTimeout(() => this.breakTarget(def, body), 0);
+            } else {
+                // まだ壊れていないヒット：効果音とスパーク、軽い点滅
+                this.sound.hit();
+                this.spawnHitSpark(body.position, def.color);
+                this.flashMesh(mesh);
             }
         });
 
@@ -132,10 +155,16 @@ export class InteractionManager {
     // 標的を破壊：本体を消し、破片を飛び散らせ、加点・爆発する
     private breakTarget(def: TargetDef, body: CANNON.Body) {
         const center = new CANNON.Vec3(body.position.x, body.position.y, body.position.z);
+        const pos = new THREE.Vector3(center.x, center.y, center.z);
 
-        // 爆発系は周囲を吹き飛ばす
+        // 爆発系は周囲を吹き飛ばす＋大きな爆発演出
         if (def.explosive) {
             this.gameManager.applyExplosion(center, def.explosionRadius, def.explosionForce);
+            this.spawnExplosionFlash(pos, def.explosionRadius, 0xffaa33);
+            this.sound.explosion();
+        } else {
+            this.spawnExplosionFlash(pos, def.size * 4, def.emissive || def.color);
+            this.sound.break();
         }
 
         // 本体を消去して破片に置き換える
@@ -144,6 +173,49 @@ export class InteractionManager {
 
         // 破壊でポイント加算
         this.gameSystem.addScore(def.points);
+    }
+
+    // ヒット時の小さなスパーク（短命の発光球）
+    private spawnHitSpark(position: CANNON.Vec3, color: number) {
+        const mat = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 1 });
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), mat);
+        mesh.position.set(position.x, position.y, position.z);
+        this.gameManager.addEffect(mesh, 0.18, (t, obj) => {
+            const s = 1 + t * 2;
+            obj.scale.setScalar(s);
+            (((obj as THREE.Mesh).material) as THREE.MeshBasicMaterial).opacity = 1 - t;
+        });
+    }
+
+    // 破壊・爆発時の発光フラッシュ（膨らんで消える半透明球）
+    private spawnExplosionFlash(position: THREE.Vector3, radius: number, color: number) {
+        const mat = new THREE.MeshBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.9,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const mesh = new THREE.Mesh(new THREE.SphereGeometry(Math.max(0.1, radius * 0.5), 16, 16), mat);
+        mesh.position.copy(position);
+        this.gameManager.addEffect(mesh, 0.4, (t, obj) => {
+            obj.scale.setScalar(0.3 + t * 1.4);
+            (((obj as THREE.Mesh).material) as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
+        });
+    }
+
+    // ヒット時に一瞬だけ発光させる
+    private flashMesh(mesh: THREE.Mesh) {
+        const mat = mesh.material as THREE.MeshStandardMaterial;
+        if (!mat || !mat.emissive) return;
+        const original = mat.emissive.getHex();
+        const originalIntensity = mat.emissiveIntensity;
+        mat.emissive.setHex(0xffffff);
+        mat.emissiveIntensity = 1.0;
+        setTimeout(() => {
+            mat.emissive.setHex(original);
+            mat.emissiveIntensity = originalIntensity;
+        }, 80);
     }
 
     // 破壊時の破片（小さな立方体）を飛び散らせる
@@ -161,6 +233,7 @@ export class InteractionManager {
                 roughness: 0.7,
             });
             const mesh = new THREE.Mesh(geometry, material);
+            mesh.castShadow = true;
 
             const px = center.x + (Math.random() - 0.5) * fragSize * 2;
             const py = center.y + (Math.random() - 0.5) * fragSize * 2;
@@ -244,6 +317,9 @@ export class InteractionManager {
         // 種類ごとに装飾パーツを足して見た目に個性を出す
         this.decorateTarget(mesh, def);
 
+        // 影を落とす（リッチな見た目）
+        mesh.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+
         return { mesh, shape, centerOffsetY };
     }
 
@@ -293,6 +369,8 @@ export class InteractionManager {
         // XRカメラの実際のワールド姿勢を使う（背景が消える＝弾が原点に湧く問題の対策）
         const { position: camPos, quaternion: camQuat } = this.gameManager.getCameraPose();
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
+
+        this.sound.shoot();
 
         // burst 発分の弾を生成（マシンガン/散弾対応）
         for (let i = 0; i < def.burst; i++) {
@@ -374,13 +452,19 @@ export class InteractionManager {
         // dir は既にワールド座標系の向きなので追加の回転は不要
         body.velocity.set(dir.x * def.speed, dir.y * def.speed, dir.z * def.speed);
 
-        // 爆発系の武器は着弾時に周囲を吹き飛ばす
+        // 爆発系の武器は着弾時に周囲を吹き飛ばす＋爆発演出
         if (def.explosive) {
             let exploded = false;
             body.addEventListener('collide', () => {
                 if (exploded) return;
                 exploded = true;
                 this.gameManager.applyExplosion(body.position, def.explosionRadius, def.explosionForce);
+                this.spawnExplosionFlash(
+                    new THREE.Vector3(body.position.x, body.position.y, body.position.z),
+                    def.explosionRadius,
+                    0xffaa33,
+                );
+                this.sound.explosion();
             });
         }
 

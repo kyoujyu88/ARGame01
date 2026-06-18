@@ -142,7 +142,7 @@ canvas {
   height: 100%;
   background: #0a0c14;
   pointer-events: auto;
-  z-index: 90;
+  z-index: 2000;
 }
 #shop-backdrop.active {
   display: block;
@@ -155,7 +155,7 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(18, 18, 28, 0.98);
+  background: #12121c;
   border: 2px solid #00ffff;
   border-radius: 12px;
   padding: 20px;
@@ -163,7 +163,7 @@ canvas {
   pointer-events: auto;
   width: 80%;
   max-width: 400px;
-  z-index: 100;
+  z-index: 2001;
 }
 
 #shop-menu.active {
