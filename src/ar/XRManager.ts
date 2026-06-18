@@ -89,6 +89,8 @@ export class XRManager {
             // 終了時はショップを閉じておく
             const shopMenu = document.getElementById('shop-menu');
             if (shopMenu) shopMenu.classList.remove('active');
+            const shopBackdrop = document.getElementById('shop-backdrop');
+            if (shopBackdrop) shopBackdrop.classList.remove('active');
         });
 
         // GameManager の単一レンダーループにhit-test処理を登録する
