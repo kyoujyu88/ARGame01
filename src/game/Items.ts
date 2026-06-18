@@ -4,6 +4,9 @@
 
 export type ShapeKind = 'box' | 'cylinder' | 'sphere' | 'crystal';
 
+// 弾の見た目の形状
+export type ProjectileShape = 'sphere' | 'box' | 'cylinder' | 'cone' | 'crystal' | 'tetra';
+
 export interface WeaponDef {
     id: string;
     name: string;
@@ -11,6 +14,8 @@ export interface WeaponDef {
     cost: number;
     /** 弾の半径 (m) */
     radius: number;
+    /** 弾の見た目の形状 */
+    projectileShape: ProjectileShape;
     /** 基本色 */
     color: number;
     /** 発光色（SF武器の光らせ用。0 で無発光） */
@@ -56,37 +61,37 @@ export interface TargetDef {
 export const WEAPONS: WeaponDef[] = [
     {
         id: 'ball', name: 'ベースボール', cost: 0,
-        radius: 0.05, color: 0xff3030, emissive: 0x000000,
+        radius: 0.05, projectileShape: 'sphere', color: 0xffffff, emissive: 0x000000,
         speed: 12, mass: 0.5, burst: 1, spread: 0,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'machineGun', name: 'マシンガン', cost: 100,
-        radius: 0.025, color: 0xffcc00, emissive: 0x553300,
+        radius: 0.025, projectileShape: 'box', color: 0xffcc00, emissive: 0x553300,
         speed: 28, mass: 0.12, burst: 3, spread: 0.04,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'plasma', name: 'プラズマキャノン [SF]', cost: 250,
-        radius: 0.12, color: 0x00ffff, emissive: 0x00aaff,
+        radius: 0.12, projectileShape: 'crystal', color: 0x00ffff, emissive: 0x00aaff,
         speed: 18, mass: 1.2, burst: 1, spread: 0,
         explosive: true, explosionRadius: 1.2, explosionForce: 14,
     },
     {
         id: 'scatter', name: 'スキャッターブラスター [SF]', cost: 350,
-        radius: 0.035, color: 0xff00ff, emissive: 0x660066,
+        radius: 0.035, projectileShape: 'tetra', color: 0xff00ff, emissive: 0x660066,
         speed: 22, mass: 0.15, burst: 6, spread: 0.22,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'railgun', name: 'レールガン [SF]', cost: 500,
-        radius: 0.03, color: 0xeaffff, emissive: 0x66ccff,
+        radius: 0.03, projectileShape: 'cylinder', color: 0xeaffff, emissive: 0x66ccff,
         speed: 60, mass: 2.5, burst: 1, spread: 0,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'rocket', name: 'ロケットランチャー [SF]', cost: 750,
-        radius: 0.08, color: 0xff8800, emissive: 0xff4400,
+        radius: 0.08, projectileShape: 'cone', color: 0xff8800, emissive: 0xff4400,
         speed: 20, mass: 1.0, burst: 1, spread: 0,
         explosive: true, explosionRadius: 2.0, explosionForce: 28,
     },
