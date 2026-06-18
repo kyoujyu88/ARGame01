@@ -95,10 +95,11 @@ export class GameSystem {
         const spawnBtn = document.getElementById('spawn-target-btn');
         const shootBtn = document.getElementById('shoot-btn');
 
-        if (spawnBtn && shootBtn) {
-            spawnBtn.style.display = this.state === GameState.PLACING ? 'block' : 'none';
-            shootBtn.style.display = this.state === GameState.SHOOTING ? 'block' : 'none';
-        }
+        // AR中（IDLE以外）は配置・発射ボタンを常に両方表示する。
+        // 以前は状態で片方ずつ切り替えていたが、操作しづらいため常時表示に変更。
+        const inGame = this.state !== GameState.IDLE;
+        if (spawnBtn) spawnBtn.style.display = inGame ? 'inline-block' : 'none';
+        if (shootBtn) shootBtn.style.display = inGame ? 'inline-block' : 'none';
     }
 
     // === 購入・装備 ===

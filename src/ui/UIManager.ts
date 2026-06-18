@@ -30,11 +30,16 @@ export class UIManager {
                 </div>
 
                 <div id="crosshair"></div>
+
+                <p id="shoot-hint">画面をタップで発射 🔫</p>
+
                 <div id="bottom-panel">
                     <!-- WebXRのボタンはThree.jsのARButtonを利用するかカスタムで作成 -->
                     <div id="ar-button-container"></div>
-                    <button id="spawn-target-btn" class="hud-button" style="display:none;">Spawn Target</button>
-                    <button id="shoot-btn" class="hud-button" style="display:none;">Shoot!</button>
+                    <div id="action-buttons">
+                        <button id="spawn-target-btn" class="hud-button action-btn" style="display:none;">🎯 配置</button>
+                        <button id="shoot-btn" class="hud-button action-btn" style="display:none;">🔫 発射</button>
+                    </div>
                 </div>
 
                 <!-- ショップは AR の dom-overlay でも表示されるよう ui-container の内側に置く -->

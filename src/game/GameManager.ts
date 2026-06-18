@@ -94,6 +94,8 @@ export class GameManager {
 
     // 外部からオブジェクトを追加するインターフェース
     public addPhysicsObject(mesh: THREE.Mesh, body: CANNON.Body, kind: 'projectile' | 'target' = 'target') {
+        // 衝突判定で「弾が当たったか」を区別できるよう、ボディに種別を付与する
+        (body as any).__kind = kind;
         this.scene.add(mesh);
         this.physicsManager.addBody(body);
         this.physicsObjects.push({ mesh, body, kind });
@@ -104,6 +106,14 @@ export class GameManager {
             if (projectiles.length > GameManager.MAX_PROJECTILES) {
                 this.removeEntry(projectiles[0]);
             }
+        }
+    }
+
+    // 配置したオブジェクトと弾をすべて消去する（AR終了時などに使用）
+    public clearAllObjects() {
+        // removeEntry が配列を変更するため、コピーに対して回す
+        for (const entry of [...this.physicsObjects]) {
+            this.removeEntry(entry);
         }
     }
 

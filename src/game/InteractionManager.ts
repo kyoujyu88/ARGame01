@@ -57,12 +57,19 @@ export class InteractionManager {
             this.gameSystem.setState(GameState.PLACING);
         });
 
+        // 画面（ARビューの何もない所）をタップすると弾を発射する。
+        // DOMボタンをタップした場合はこの select は発火しないので競合しない。
+        const controller = this.gameManager.renderer.xr.getController(0);
+        controller.addEventListener('select', () => {
+            this.shootWeapon();
+        });
+        this.gameManager.scene.add(controller);
+
         const spawnBtn = document.getElementById('spawn-target-btn');
         const shootBtn = document.getElementById('shoot-btn');
 
         spawnBtn?.addEventListener('click', () => {
-            const placed = this.spawnTarget();
-            if (placed) this.gameSystem.setState(GameState.SHOOTING);
+            this.spawnTarget();
         });
 
         shootBtn?.addEventListener('click', () => {
@@ -102,8 +109,12 @@ export class InteractionManager {
         // ポイント加算の多重発生を防ぐためのフラグ
         let scored = false;
         body.addEventListener('collide', (e: any) => {
-            const relativeVelocity = e.contact.getImpactVelocityAlongNormal();
-            if (Math.abs(relativeVelocity) > 2 && !scored) {
+            if (scored) return;
+            // 弾が当たったときだけ加点する（落下や地面との接触では入らない）
+            const other = e.body;
+            const hitByProjectile = other && other.__kind === 'projectile';
+            const relativeVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
+            if (hitByProjectile && relativeVelocity > 1.5) {
                 scored = true;
                 this.gameSystem.addScore(def.points);
 

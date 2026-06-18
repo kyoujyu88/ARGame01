@@ -45,9 +45,11 @@ export class XRManager {
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'flex';
 
-            // 発射時の照準（中央の十字レティクル）はAR中のみ表示する
+            // 発射時の照準（中央の十字レティクル）とタップ操作ヒントはAR中のみ表示する
             const crosshair = document.getElementById('crosshair');
             if (crosshair) crosshair.style.display = 'block';
+            const shootHint = document.getElementById('shoot-hint');
+            if (shootHint) shootHint.style.display = 'block';
         });
 
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
@@ -64,6 +66,11 @@ export class XRManager {
             if (this.reticle) this.reticle.visible = false;
             const crosshair = document.getElementById('crosshair');
             if (crosshair) crosshair.style.display = 'none';
+            const shootHint = document.getElementById('shoot-hint');
+            if (shootHint) shootHint.style.display = 'none';
+
+            // 配置した標的や弾をすべて消去する（AR終了後に残り続ける問題の対策）
+            this.gameManager.clearAllObjects();
 
             // dom-overlay のフルスクリーン解除後に UI コンテナが隠れたままになり、
             // ショップを閉じると黒画面で操作不能になる端末があるため、明示的に表示を復帰させる
