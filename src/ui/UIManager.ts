@@ -59,6 +59,12 @@ export class UIManager {
         this.shopMenu = document.getElementById('shop-menu');
         const backdrop = document.getElementById('shop-backdrop');
 
+        // AR(dom-overlay)中、UI要素のタップで XR の select（タップ発射）が
+        // 同時に発火してしまうのを防ぐ。UI操作時は beforexrselect を抑制する。
+        // （何もない所のタップでは発火しないので、発射は通常どおり機能する）
+        const uiContainer = document.getElementById('ui-container');
+        uiContainer?.addEventListener('beforexrselect', (ev) => ev.preventDefault());
+
         const openShop = () => {
             this.shopMenu?.classList.add('active');
             backdrop?.classList.add('active');
