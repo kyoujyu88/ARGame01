@@ -49,15 +49,33 @@ export class XRManager {
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'none';
-            
-            // セッション終了時はUIボタンを隠す
+
+            // セッション終了時はゲーム用のUIボタンを隠す
             const spawnBtn = document.getElementById('spawn-target-btn');
             const shootBtn = document.getElementById('shoot-btn');
             if (spawnBtn) spawnBtn.style.display = 'none';
             if (shootBtn) shootBtn.style.display = 'none';
-            
+
             // レティクルも隠す
             if (this.reticle) this.reticle.visible = false;
+
+            // dom-overlay のフルスクリーン解除後に UI コンテナが隠れたままになり、
+            // ショップを閉じると黒画面で操作不能になる端末があるため、明示的に表示を復帰させる
+            const uiContainer = document.getElementById('ui-container');
+            if (uiContainer) {
+                uiContainer.style.display = 'flex';
+                uiContainer.style.visibility = 'visible';
+                uiContainer.style.opacity = '1';
+            }
+
+            // 残存しているフルスクリーン状態があれば解除する
+            if (document.fullscreenElement) {
+                document.exitFullscreen?.().catch(() => { /* noop */ });
+            }
+
+            // 終了時はショップを閉じておく
+            const shopMenu = document.getElementById('shop-menu');
+            if (shopMenu) shopMenu.classList.remove('active');
         });
 
         // GameManager の単一レンダーループにhit-test処理を登録する
