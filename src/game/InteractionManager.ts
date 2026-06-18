@@ -240,7 +240,51 @@ export class InteractionManager {
         });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(position.x, position.y + centerOffsetY, position.z);
+
+        // 種類ごとに装飾パーツを足して見た目に個性を出す
+        this.decorateTarget(mesh, def);
+
         return { mesh, shape, centerOffsetY };
+    }
+
+    // 標的に装飾（子メッシュ）を追加して、色違いだけにならないようにする
+    private decorateTarget(mesh: THREE.Mesh, def: TargetDef) {
+        if (def.id === 'box') {
+            // 木箱：枠線を足して箱らしく
+            const edges = new THREE.LineSegments(
+                new THREE.EdgesGeometry(mesh.geometry),
+                new THREE.LineBasicMaterial({ color: 0x3a2410 }),
+            );
+            mesh.add(edges);
+        } else if (def.id === 'drone') {
+            // ドローン：4つのローターと発光ライト
+            const rotorGeo = new THREE.CylinderGeometry(def.size * 0.28, def.size * 0.28, def.size * 0.06, 16);
+            const rotorMat = new THREE.MeshStandardMaterial({ color: 0x10141a, metalness: 0.6, roughness: 0.4 });
+            const arm = def.size * 0.55;
+            for (const [dx, dz] of [[-arm, -arm], [arm, -arm], [-arm, arm], [arm, arm]]) {
+                const rotor = new THREE.Mesh(rotorGeo, rotorMat);
+                rotor.position.set(dx, def.size * 0.5, dz);
+                mesh.add(rotor);
+            }
+            const light = new THREE.Mesh(
+                new THREE.SphereGeometry(def.size * 0.12, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 1.2 }),
+            );
+            light.position.set(0, def.size * 0.62, 0);
+            mesh.add(light);
+        } else if (def.id === 'reactor') {
+            // 核融合リアクター：発光するリングを3段まとう
+            const ringMat = new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xffaa00, emissiveIntensity: 1.2 });
+            for (const y of [-def.height * 0.28, 0, def.height * 0.28]) {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(def.size * 1.08, def.size * 0.08, 12, 24),
+                    ringMat,
+                );
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = y;
+                mesh.add(ring);
+            }
+        }
     }
 
     private shootWeapon() {
@@ -256,12 +300,37 @@ export class InteractionManager {
         }
     }
 
+    // 武器ごとの弾の形状を生成する。elongated=true の弾は進行方向へ向ける。
+    private createProjectileGeometry(def: WeaponDef): { geometry: THREE.BufferGeometry; elongated: boolean } {
+        const r = def.radius;
+        switch (def.projectileShape) {
+            case 'box':
+                // マシンガンの弾（小さく細長い弾頭）
+                return { geometry: new THREE.BoxGeometry(r * 1.2, r * 3, r * 1.2), elongated: true };
+            case 'cylinder':
+                // レールガンのダート（細長い棒）
+                return { geometry: new THREE.CylinderGeometry(r, r, r * 8, 12), elongated: true };
+            case 'cone':
+                // ロケット（ミサイル状）
+                return { geometry: new THREE.ConeGeometry(r, r * 3.5, 16), elongated: true };
+            case 'crystal':
+                // プラズマ（エネルギーの塊）
+                return { geometry: new THREE.IcosahedronGeometry(r, 0), elongated: false };
+            case 'tetra':
+                // 散弾の破片
+                return { geometry: new THREE.TetrahedronGeometry(r, 0), elongated: false };
+            case 'sphere':
+            default:
+                return { geometry: new THREE.SphereGeometry(r, 16, 16), elongated: false };
+        }
+    }
+
     private spawnProjectile(
         def: WeaponDef,
         camPos: THREE.Vector3,
         forward: THREE.Vector3,
     ) {
-        const geometry = new THREE.SphereGeometry(def.radius, 16, 16);
+        const { geometry, elongated } = this.createProjectileGeometry(def);
         const material = new THREE.MeshStandardMaterial({
             color: def.color,
             emissive: def.emissive,
@@ -270,6 +339,15 @@ export class InteractionManager {
             roughness: 0.4,
         });
         const mesh = new THREE.Mesh(geometry, material);
+
+        // 拡散を加味した発射方向
+        const dir = forward.clone();
+        if (def.spread > 0) {
+            dir.x += (Math.random() - 0.5) * def.spread;
+            dir.y += (Math.random() - 0.5) * def.spread;
+            dir.z += (Math.random() - 0.5) * def.spread;
+            dir.normalize();
+        }
 
         // カメラの少し前方から発射する（視界を覆わないように）
         const startPos = camPos.clone().add(forward.clone().multiplyScalar(0.3));
@@ -283,14 +361,16 @@ export class InteractionManager {
         });
         body.addShape(shape);
 
-        // 拡散を加味した発射方向
-        const dir = forward.clone();
-        if (def.spread > 0) {
-            dir.x += (Math.random() - 0.5) * def.spread;
-            dir.y += (Math.random() - 0.5) * def.spread;
-            dir.z += (Math.random() - 0.5) * def.spread;
-            dir.normalize();
+        // 細長い弾（ダート/ミサイル等）は進行方向へ向ける。
+        // 物理は球なので回転しない＝body.quaternion を固定すれば見た目が安定する。
+        if (elongated) {
+            const q = new THREE.Quaternion().setFromUnitVectors(
+                new THREE.Vector3(0, 1, 0),
+                dir.clone().normalize(),
+            );
+            body.quaternion.set(q.x, q.y, q.z, q.w);
         }
+
         // dir は既にワールド座標系の向きなので追加の回転は不要
         body.velocity.set(dir.x * def.speed, dir.y * def.speed, dir.z * def.speed);
 

@@ -122,13 +122,17 @@ export class GameManager {
     private removeEntry(entry: PhysicsEntry) {
         this.scene.remove(entry.mesh);
         this.physicsManager.removeBody(entry.body);
-        if (entry.mesh.geometry) entry.mesh.geometry.dispose();
-        const mat = entry.mesh.material;
-        if (Array.isArray(mat)) {
-            mat.forEach((m) => m.dispose());
-        } else if (mat) {
-            mat.dispose();
-        }
+        // 子要素を含めてジオメトリ・マテリアルを破棄する（複合メッシュ対応）
+        entry.mesh.traverse((obj) => {
+            const m = obj as THREE.Mesh;
+            if (m.geometry) m.geometry.dispose();
+            const mat = m.material;
+            if (Array.isArray(mat)) {
+                mat.forEach((mm) => mm.dispose());
+            } else if (mat) {
+                mat.dispose();
+            }
+        });
         const idx = this.physicsObjects.indexOf(entry);
         if (idx !== -1) this.physicsObjects.splice(idx, 1);
     }
