@@ -43,6 +43,8 @@ export interface TargetDef {
     /** cylinder の高さ */
     height: number;
     mass: number;
+    /** 破壊（弾を当てた回数）に必要なヒット数 */
+    health: number;
     /** 破壊（強い衝撃）で得られるポイント */
     points: number;
     /** 破壊時に連鎖爆発するか（ドラム缶・リアクターなど） */
@@ -94,43 +96,43 @@ export const TARGETS: TargetDef[] = [
     {
         id: 'box', name: '木箱', cost: 0,
         shape: 'box', color: 0x8b5a2b, emissive: 0x000000,
-        size: 0.2, height: 0.2, mass: 1, points: 10,
+        size: 0.2, height: 0.2, mass: 1, health: 2, points: 10,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'barrel', name: '爆発ドラム缶', cost: 50,
         shape: 'cylinder', color: 0xff3333, emissive: 0x330000,
-        size: 0.15, height: 0.4, mass: 2, points: 30,
+        size: 0.15, height: 0.4, mass: 2, health: 1, points: 30,
         explosive: true, explosionRadius: 1.5, explosionForce: 18,
     },
     {
         id: 'can', name: 'スチール缶', cost: 80,
         shape: 'cylinder', color: 0xb0b8c0, emissive: 0x000000,
-        size: 0.08, height: 0.18, mass: 0.4, points: 20,
+        size: 0.08, height: 0.18, mass: 0.4, health: 1, points: 20,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'bowling', name: 'ボウリング球', cost: 120,
         shape: 'sphere', color: 0x202028, emissive: 0x000000,
-        size: 0.12, height: 0, mass: 4, points: 25,
+        size: 0.12, height: 0, mass: 4, health: 4, points: 25,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'crystal', name: 'エネルギークリスタル [SF]', cost: 200,
         shape: 'crystal', color: 0x00ffaa, emissive: 0x00ff88,
-        size: 0.15, height: 0, mass: 0.8, points: 50,
+        size: 0.15, height: 0, mass: 0.8, health: 3, points: 50,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'drone', name: 'ホバードローン [SF]', cost: 350,
         shape: 'box', color: 0x3366ff, emissive: 0x2244aa,
-        size: 0.18, height: 0.18, mass: 0.5, points: 70,
+        size: 0.18, height: 0.18, mass: 0.5, health: 2, points: 70,
         explosive: true, explosionRadius: 1.0, explosionForce: 10,
     },
     {
         id: 'reactor', name: '核融合リアクター [SF]', cost: 500,
         shape: 'cylinder', color: 0xffee44, emissive: 0xffaa00,
-        size: 0.2, height: 0.45, mass: 3, points: 100,
+        size: 0.2, height: 0.45, mass: 3, health: 4, points: 100,
         explosive: true, explosionRadius: 2.5, explosionForce: 35,
     },
 ];

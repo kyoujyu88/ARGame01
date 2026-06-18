@@ -43,6 +43,7 @@ export class UIManager {
                 </div>
 
                 <!-- ショップは AR の dom-overlay でも表示されるよう ui-container の内側に置く -->
+                <div id="shop-backdrop"></div>
                 <div id="shop-menu">
                     <h3 style="margin-top:0;">SHOP <span id="shop-points">0 pt</span></h3>
                     <div class="shop-section-title">武器 (Weapons)</div>
@@ -56,14 +57,21 @@ export class UIManager {
 
         this.scoreElement = document.getElementById('score-display');
         this.shopMenu = document.getElementById('shop-menu');
+        const backdrop = document.getElementById('shop-backdrop');
 
-        document.getElementById('shop-btn')?.addEventListener('click', () => {
-            if (this.shopMenu) this.shopMenu.classList.add('active');
-        });
+        const openShop = () => {
+            this.shopMenu?.classList.add('active');
+            backdrop?.classList.add('active');
+        };
+        const closeShop = () => {
+            this.shopMenu?.classList.remove('active');
+            backdrop?.classList.remove('active');
+        };
 
-        document.getElementById('close-shop-btn')?.addEventListener('click', () => {
-            if (this.shopMenu) this.shopMenu.classList.remove('active');
-        });
+        document.getElementById('shop-btn')?.addEventListener('click', openShop);
+        document.getElementById('close-shop-btn')?.addEventListener('click', closeShop);
+        // 背景（バックドロップ）タップでも閉じる。裏のボタンへのタップ貫通も防ぐ
+        backdrop?.addEventListener('click', closeShop);
     }
 
     public updateScore(score: number) {

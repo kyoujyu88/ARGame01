@@ -132,6 +132,22 @@ canvas {
   text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
+/* ショップの背景（モーダル用バックドロップ）。裏のボタンへのタップ貫通を防ぐ */
+#shop-backdrop {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  pointer-events: auto;
+  z-index: 90;
+}
+#shop-backdrop.active {
+  display: block;
+}
+
 /* ショップメニュー */
 #shop-menu {
   display: none;
@@ -139,7 +155,7 @@ canvas {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(20, 20, 30, 0.9);
+  background: rgba(18, 18, 28, 0.98);
   border: 2px solid #00ffff;
   border-radius: 12px;
   padding: 20px;
