@@ -36,14 +36,16 @@ export class UIManager {
                     <button id="spawn-target-btn" class="hud-button" style="display:none;">Spawn Target</button>
                     <button id="shoot-btn" class="hud-button" style="display:none;">Shoot!</button>
                 </div>
-            </div>
-            <div id="shop-menu">
-                <h3 style="margin-top:0;">SHOP <span id="shop-points">0 pt</span></h3>
-                <div class="shop-section-title">武器 (Weapons)</div>
-                <div id="shop-weapons"></div>
-                <div class="shop-section-title">破壊対象 (Targets)</div>
-                <div id="shop-targets"></div>
-                <button id="close-shop-btn" class="hud-button" style="margin-top:12px; width:100%;">Close</button>
+
+                <!-- ショップは AR の dom-overlay でも表示されるよう ui-container の内側に置く -->
+                <div id="shop-menu">
+                    <h3 style="margin-top:0;">SHOP <span id="shop-points">0 pt</span></h3>
+                    <div class="shop-section-title">武器 (Weapons)</div>
+                    <div id="shop-weapons"></div>
+                    <div class="shop-section-title">破壊対象 (Targets)</div>
+                    <div id="shop-targets"></div>
+                    <button id="close-shop-btn" class="hud-button" style="margin-top:12px; width:100%;">Close</button>
+                </div>
             </div>
         `;
 
