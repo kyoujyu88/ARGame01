@@ -84,6 +84,52 @@ canvas {
 
 .hud-button:active {
   background: rgba(255, 255, 255, 0.5);
+  transform: scale(0.96);
+}
+
+/* 配置・発射の操作ボタンを横並び＆親指で押しやすい大きさに */
+#action-buttons {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  width: 100%;
+}
+
+.action-btn {
+  flex: 1;
+  max-width: 200px;
+  padding: 18px 16px;
+  font-size: 20px;
+  font-weight: bold;
+  border-radius: 14px;
+  background: rgba(0, 0, 0, 0.45);
+  border: 2px solid rgba(255, 255, 255, 0.7);
+}
+
+#shoot-btn.action-btn {
+  background: rgba(255, 60, 60, 0.5);
+  border-color: #ff8080;
+}
+
+#spawn-target-btn.action-btn {
+  background: rgba(0, 180, 120, 0.5);
+  border-color: #4dffc3;
+}
+
+/* タップ発射のヒント */
+#shoot-hint {
+  display: none;
+  position: absolute;
+  bottom: 160px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: white;
+  font-size: 14px;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 6px 14px;
+  border-radius: 20px;
+  pointer-events: none;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 /* ショップメニュー */
@@ -167,27 +213,29 @@ canvas {
   cursor: not-allowed;
 }
 
-/* 中心レティクル */
+/* 中心レティクル（弾の照準） */
 #crosshair {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 20px;
-  height: 20px;
+  width: 32px;
+  height: 32px;
   transform: translate(-50%, -50%);
   pointer-events: none;
   display: none;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.8), inset 0 0 4px rgba(0, 0, 0, 0.6);
 }
-#crosshair::before, #crosshair::after {
+/* 中心のドット */
+#crosshair::before {
   content: '';
   position: absolute;
-  background: rgba(255, 255, 255, 0.8);
-}
-#crosshair::before {
-  top: 9px; left: 0; width: 20px; height: 2px;
-}
-#crosshair::after {
-  top: 0; left: 9px; width: 2px; height: 20px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.8);
+  top: 50%; left: 50%; width: 6px; height: 6px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
 }
 
 /* スキャンアニメーション */
