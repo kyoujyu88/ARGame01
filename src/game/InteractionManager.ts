@@ -7,6 +7,7 @@ import { getWeapon, getTarget } from './Items';
 import type { WeaponDef, TargetDef } from './Items';
 import { SoundManager } from '../audio/SoundManager';
 import { UIManager } from '../ui/UIManager';
+import { ModelLoader } from './ModelLoader';
 
 export class InteractionManager {
     private gameManager: GameManager;
@@ -14,6 +15,7 @@ export class InteractionManager {
     private gameSystem: GameSystem;
     private sound: SoundManager;
     private uiManager: UIManager;
+    private modelLoader = new ModelLoader();
 
     // 物理マテリアルの定義
     private physicsMaterial = new CANNON.Material('standard');
@@ -142,10 +144,36 @@ export class InteractionManager {
         // 破壊時コールバックをボディに紐づける（breakTarget から呼ぶ）
         if (onDestroyed) (body as any).__onDestroyed = onDestroyed;
 
-        // ドローン・UFOは少し浮いた状態から始める（SF演出）
-        if (def.id === 'drone' || def.id === 'ufo') {
+        // ドローン・UFO・ボスは少し浮いた状態から始める（SF演出）
+        if (def.id === 'drone' || def.id === 'ufo' || def.id === 'boss') {
             body.position.y += 0.3;
             mesh.position.y += 0.3;
+        }
+
+        // 動く標的はキネマティック化して、毎フレーム位置をスクリプトで動かす
+        if (def.motion !== 'none') {
+            body.type = CANNON.Body.KINEMATIC;
+            body.updateMassProperties();
+            const range = def.motion === 'spin' ? 0.35 : (def.motion === 'strafe' ? 0.4 : 0.15);
+            (body as any).__mover = {
+                type: def.motion,
+                ox: body.position.x,
+                oy: body.position.y,
+                oz: body.position.z,
+                t: Math.random() * Math.PI * 2,
+                speed: 1.2 + Math.random() * 0.6,
+                range,
+            };
+        }
+
+        // 外部3Dモデル(GLTF)が指定されていれば読み込んで差し替える（無ければプリミティブのまま）
+        if (def.modelUrl) {
+            this.modelLoader.load(def.modelUrl).then((model) => {
+                model.scale.setScalar(def.size * 2);
+                model.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+                mesh.add(model);
+                (mesh.material as THREE.Material).visible = false; // 物理用の素体は隠す
+            }).catch(() => { /* 失敗時はプリミティブのまま */ });
         }
 
         // HPバー（耐久2以上の標的に表示。被弾で減る緑バー）
@@ -166,7 +194,9 @@ export class InteractionManager {
             const relativeVelocity = Math.abs(e.contact.getImpactVelocityAlongNormal());
             if (!hitByProjectile || relativeVelocity <= 1.5) return;
 
-            health -= 1;
+            // 弾の威力（武器強化レベルで増える）だけ耐久を削る
+            const damage = (other.__damage as number) ?? 1;
+            health -= damage;
             if (health <= 0) {
                 broken = true;
                 // 衝突コールバック中に world を変更すると不安定なので次のタスクで実行する
@@ -178,7 +208,7 @@ export class InteractionManager {
                 this.spawnHitSpark(body.position, def.color);
                 this.flashMesh(mesh);
                 this.uiManager.hitMarker();
-                if (hpBar) hpBar.scale.x = (health / def.health) * hpBarWidth;
+                if (hpBar) hpBar.scale.x = Math.max(0, health / def.health) * hpBarWidth;
             }
         });
 
@@ -390,12 +420,14 @@ export class InteractionManager {
             }
         }
 
+        const texture = this.makeTexture(def);
         const material = new THREE.MeshStandardMaterial({
             color: def.color,
             emissive: def.emissive,
             emissiveIntensity: def.emissive ? 0.8 : 0,
-            metalness: 0.3,
+            metalness: def.id === 'can' || def.id === 'barrel' ? 0.7 : 0.3,
             roughness: 0.6,
+            map: texture,
         });
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(position.x, position.y + centerOffsetY, position.z);
@@ -407,6 +439,61 @@ export class InteractionManager {
         mesh.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
 
         return { mesh, shape, centerOffsetY };
+    }
+
+    // 標的のテクスチャをコードで生成する（外部画像なしで質感を出す）。
+    // 対応していない種類は null（無地）を返す。
+    private makeTexture(def: TargetDef): THREE.CanvasTexture | null {
+        const make = (draw: (ctx: CanvasRenderingContext2D, s: number) => void): THREE.CanvasTexture => {
+            const s = 128;
+            const canvas = document.createElement('canvas');
+            canvas.width = s; canvas.height = s;
+            const ctx = canvas.getContext('2d')!;
+            draw(ctx, s);
+            const tex = new THREE.CanvasTexture(canvas);
+            return tex;
+        };
+
+        if (def.id === 'box') {
+            // 木目＋板の継ぎ目
+            return make((ctx, s) => {
+                ctx.fillStyle = '#9b6a36'; ctx.fillRect(0, 0, s, s);
+                ctx.strokeStyle = 'rgba(80,45,15,0.5)';
+                ctx.lineWidth = 2;
+                for (let i = 0; i < 10; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(0, i * s / 10 + (Math.random() * 4 - 2));
+                    ctx.lineTo(s, i * s / 10 + (Math.random() * 4 - 2));
+                    ctx.stroke();
+                }
+                ctx.strokeStyle = '#5a3410'; ctx.lineWidth = 6;
+                ctx.strokeRect(3, 3, s - 6, s - 6);
+            });
+        }
+        if (def.id === 'barrel') {
+            // 危険物の黄黒ストライプ
+            return make((ctx, s) => {
+                ctx.fillStyle = '#c62828'; ctx.fillRect(0, 0, s, s);
+                ctx.fillStyle = '#ffd23f';
+                ctx.fillRect(0, s * 0.3, s, s * 0.16);
+                ctx.fillRect(0, s * 0.6, s, s * 0.16);
+                ctx.fillStyle = '#000';
+                for (let x = -s; x < s; x += 16) {
+                    ctx.save(); ctx.beginPath();
+                    ctx.rect(0, s * 0.3, s, s * 0.16); ctx.clip();
+                    ctx.fillRect(x, s * 0.3, 8, s * 0.16); ctx.restore();
+                }
+            });
+        }
+        if (def.id === 'can' || def.id === 'reactor') {
+            // 金属のハイライト縞
+            return make((ctx, s) => {
+                const g = ctx.createLinearGradient(0, 0, s, 0);
+                g.addColorStop(0, '#888'); g.addColorStop(0.5, '#e8eef2'); g.addColorStop(1, '#888');
+                ctx.fillStyle = g; ctx.fillRect(0, 0, s, s);
+            });
+        }
+        return null;
     }
 
     // 標的に装飾（子メッシュ）を追加して、色違いだけにならないようにする
@@ -618,6 +705,9 @@ export class InteractionManager {
             position: new CANNON.Vec3(startPos.x, startPos.y, startPos.z),
         });
         body.addShape(shape);
+
+        // 弾の威力（武器強化レベルで増える）をボディに持たせる
+        (body as any).__damage = this.gameSystem.getWeaponDamage(def.id);
 
         // 細長い弾（ダート/ミサイル等）は進行方向へ向ける。
         // 物理は球なので回転しない＝body.quaternion を固定すれば見た目が安定する。
