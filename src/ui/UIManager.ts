@@ -5,6 +5,13 @@ import { APP_VERSION } from '../version';
 interface ShopCallbacks {
     onBuy: (id: string, kind: 'weapon' | 'target') => void;
     onEquip: (id: string, kind: 'weapon' | 'target') => void;
+    onUpgrade: (id: string) => void;
+}
+
+export interface UpgradeInfo {
+    level: number;
+    cost: number;
+    max: number;
 }
 
 export type GameMode = 'free' | 'time' | 'wave';
@@ -240,6 +247,16 @@ export class UIManager {
                 });
 
                 row.appendChild(label);
+
+                // 武器には強化ボタンも付ける
+                if (kind === 'weapon') {
+                    const upBtn = document.createElement('button');
+                    upBtn.className = 'upgrade-btn';
+                    upBtn.innerText = '強化';
+                    upBtn.addEventListener('click', () => cb.onUpgrade(item.id));
+                    row.appendChild(upBtn);
+                }
+
                 row.appendChild(btn);
                 root.appendChild(row);
             }
@@ -255,6 +272,7 @@ export class UIManager {
         unlocked: Set<string>,
         equippedWeapon: string,
         equippedTarget: string,
+        upgrades?: Record<string, UpgradeInfo>,
     ) {
         this.updateScore(points);
 
@@ -269,6 +287,25 @@ export class UIManager {
             const owned = unlocked.has(id);
             const equipped = kind === 'weapon' ? equippedWeapon === id : equippedTarget === id;
             btn.dataset.owned = owned ? 'true' : 'false';
+
+            // 強化ボタンの状態更新（武器のみ）
+            const upBtn = row.querySelector<HTMLButtonElement>('.upgrade-btn');
+            if (upBtn && upgrades && upgrades[id]) {
+                const info = upgrades[id];
+                if (!owned) {
+                    upBtn.style.display = 'none';
+                } else if (info.level >= info.max) {
+                    upBtn.style.display = '';
+                    upBtn.innerText = `MAX(Lv${info.level})`;
+                    upBtn.disabled = true;
+                } else {
+                    upBtn.style.display = '';
+                    upBtn.innerText = `強化 Lv${info.level}→${info.level + 1} (${info.cost})`;
+                    upBtn.disabled = points < info.cost;
+                }
+            } else if (upBtn) {
+                upBtn.style.display = 'none';
+            }
 
             // コストの抽出（labelテキストの "(xxxpt)" から取得せず data 属性で管理しない簡易判定）
             if (equipped) {

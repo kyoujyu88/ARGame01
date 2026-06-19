@@ -111,6 +111,22 @@ export class GameManager {
         // 物理演算の更新
         this.physicsManager.update(dt);
 
+        // 動く標的（キネマティック）の位置をスクリプトで更新する
+        for (const obj of this.physicsObjects) {
+            const mover = (obj.body as any).__mover;
+            if (!mover) continue;
+            mover.t += dt * mover.speed;
+            if (mover.type === 'hover') {
+                obj.body.position.y = mover.oy + Math.sin(mover.t) * mover.range;
+            } else if (mover.type === 'strafe') {
+                obj.body.position.x = mover.ox + Math.sin(mover.t) * mover.range;
+            } else if (mover.type === 'spin') {
+                obj.body.position.x = mover.ox + Math.cos(mover.t) * mover.range;
+                obj.body.position.z = mover.oz + Math.sin(mover.t) * mover.range;
+                obj.body.position.y = mover.oy + Math.sin(mover.t * 2) * 0.03;
+            }
+        }
+
         // Three.jsオブジェクトと物理ボディの位置・回転を同期
         for (const obj of this.physicsObjects) {
             obj.mesh.position.copy(obj.body.position as unknown as THREE.Vector3);

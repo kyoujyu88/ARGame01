@@ -18,6 +18,7 @@ interface SaveData {
     unlocked: string[];
     equippedWeapon: string;
     equippedTarget: string;
+    upgrades?: Record<string, number>;
 }
 
 export class GameSystem {
@@ -31,14 +32,47 @@ export class GameSystem {
     // 初期解放アイテム（コスト 0 のもの）
     public unlockedItems: Set<string> = new Set(['ball', 'box']);
 
+    // 武器の強化レベル（id -> level, 0..MAX）
+    private upgrades: Record<string, number> = {};
+    public static readonly MAX_UPGRADE = 3;
+
     constructor(uiManager: UIManager) {
         this.uiManager = uiManager;
         this.load();
         this.uiManager.buildShop(WEAPONS, TARGETS, {
             onBuy: (id, kind) => this.buy(id, kind),
             onEquip: (id, kind) => this.equip(id, kind),
+            onUpgrade: (id) => this.upgradeWeapon(id),
         });
         this.updateUI();
+        this.refreshShopUI();
+    }
+
+    // === 武器強化 ===
+    public getWeaponLevel(id: string): number {
+        return this.upgrades[id] ?? 0;
+    }
+
+    // 弾1発あたりのダメージ（基本1 + 強化レベル）
+    public getWeaponDamage(id: string): number {
+        return 1 + this.getWeaponLevel(id);
+    }
+
+    public getUpgradeCost(id: string): number {
+        const level = this.getWeaponLevel(id);
+        if (level >= GameSystem.MAX_UPGRADE) return Infinity;
+        return 150 * (level + 1);
+    }
+
+    public upgradeWeapon(id: string) {
+        const level = this.getWeaponLevel(id);
+        if (level >= GameSystem.MAX_UPGRADE) return;
+        const cost = this.getUpgradeCost(id);
+        if (this.score < cost) return;
+        this.score -= cost;
+        this.upgrades[id] = level + 1;
+        this.uiManager.updateScore(this.score);
+        this.save();
         this.refreshShopUI();
     }
 
@@ -55,6 +89,7 @@ export class GameSystem {
             this.unlockedItems.add('box');
             this.currentWeapon = data.equippedWeapon ?? 'ball';
             this.currentTarget = data.equippedTarget ?? 'box';
+            this.upgrades = data.upgrades ?? {};
         } catch (e) {
             console.warn('セーブデータの読み込みに失敗しました', e);
         }
@@ -66,6 +101,7 @@ export class GameSystem {
             unlocked: Array.from(this.unlockedItems),
             equippedWeapon: this.currentWeapon,
             equippedTarget: this.currentTarget,
+            upgrades: this.upgrades,
         };
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -163,11 +199,21 @@ export class GameSystem {
     }
 
     private refreshShopUI() {
+        // 武器ごとの強化情報（レベル・次コスト）
+        const upgradeInfo: Record<string, { level: number; cost: number; max: number }> = {};
+        for (const w of WEAPONS) {
+            upgradeInfo[w.id] = {
+                level: this.getWeaponLevel(w.id),
+                cost: this.getUpgradeCost(w.id),
+                max: GameSystem.MAX_UPGRADE,
+            };
+        }
         this.uiManager.refreshShop(
             this.score,
             this.unlockedItems,
             this.currentWeapon,
             this.currentTarget,
+            upgradeInfo,
         );
     }
 }

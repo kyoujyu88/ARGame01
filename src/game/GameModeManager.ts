@@ -5,7 +5,7 @@ import { GameSystem } from './GameSystem';
 import { InteractionManager } from './InteractionManager';
 import { UIManager } from '../ui/UIManager';
 import type { GameMode } from '../ui/UIManager';
-import { TARGETS } from './Items';
+import { NORMAL_TARGETS, getTarget } from './Items';
 
 // フリー / タイムアタック / ウェーブ の3モードを管理する。
 // タイム・ウェーブでは検出した床の周辺に標的を自動で湧かせてスコアを競う。
@@ -130,6 +130,11 @@ export class GameModeManager {
     }
 
     private spawnWaveTargets() {
+        // 5の倍数のウェーブはボス戦
+        if (this.wave % 5 === 0) {
+            this.spawnBoss();
+            return;
+        }
         const count = 2 + this.wave; // ウェーブが進むほど増える
         for (let i = 0; i < count; i++) {
             // 少しずつ時間差で出す
@@ -137,6 +142,17 @@ export class GameModeManager {
                 if (this.running && this.mode === 'wave') this.spawnOne();
             }, i * 250);
         }
+    }
+
+    private spawnBoss() {
+        const boss = getTarget('boss');
+        this.aliveCount += 1;
+        this.interaction.placeTarget(boss, this.origin.clone(), () => {
+            this.aliveCount -= 1;
+            this.updateStatus();
+            this.onWaveTargetCleared();
+        });
+        this.updateStatus();
     }
 
     private onWaveTargetCleared() {
@@ -153,7 +169,7 @@ export class GameModeManager {
 
     // === 共通 ===
     private spawnOne() {
-        const def = TARGETS[Math.floor(Math.random() * TARGETS.length)];
+        const def = NORMAL_TARGETS[Math.floor(Math.random() * NORMAL_TARGETS.length)];
         const angle = Math.random() * Math.PI * 2;
         const r = 0.35 + Math.random() * 0.7;
         const pos = new THREE.Vector3(

@@ -98,6 +98,14 @@ export class SoundManager {
         this.noiseBurst(0.25, 2200, 0.35);
     }
 
+    // ガラスが割れる高い「チャリン」音
+    glass() {
+        if (this.muted) return;
+        this.tone(2600, 0.12, 'triangle', 0.12, 1400);
+        this.tone(3300, 0.18, 'triangle', 0.1, 1800);
+        this.noiseBurst(0.15, 6000, 0.18);
+    }
+
     explosion() {
         this.noiseBurst(0.5, 500, 0.5);
         this.tone(90, 0.5, 'sawtooth', 0.25, 40);
