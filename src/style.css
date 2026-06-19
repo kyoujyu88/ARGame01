@@ -44,6 +44,102 @@ canvas {
   height: 100%;
 }
 
+.top-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.icon-btn {
+  padding: 8px 12px;
+  font-size: 18px;
+}
+
+/* ゲームモード選択バー */
+#mode-bar {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: auto;
+  z-index: 60;
+}
+.mode-btn {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #ddd;
+  padding: 7px 12px;
+  border-radius: 18px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.mode-btn.active {
+  background: #00ffff;
+  color: #003;
+  border-color: #00ffff;
+  font-weight: bold;
+}
+
+/* モード中ステータス（残り時間・Wave） */
+#mode-status {
+  display: none;
+  position: absolute;
+  top: 110px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  padding: 6px 16px;
+  border-radius: 16px;
+  font-size: 16px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 60;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+/* リザルト表示 */
+#result-overlay {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.6);
+  pointer-events: auto;
+  z-index: 2100;
+  justify-content: center;
+  align-items: center;
+}
+#result-overlay.active {
+  display: flex;
+}
+#result-panel {
+  background: #12121c;
+  border: 2px solid #00ffff;
+  border-radius: 14px;
+  padding: 24px 28px;
+  color: #fff;
+  text-align: center;
+  font-size: 18px;
+  line-height: 1.6;
+  max-width: 80%;
+}
+
+/* バージョン表示 */
+#version-label {
+  position: absolute;
+  bottom: 4px;
+  left: 6px;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 11px;
+  pointer-events: none;
+  z-index: 60;
+}
+
 /* 上部情報パネル */
 #top-panel {
   padding: 20px;

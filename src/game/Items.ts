@@ -140,6 +140,18 @@ export const TARGETS: TargetDef[] = [
         size: 0.2, height: 0.45, mass: 3, health: 4, points: 100,
         explosive: true, explosionRadius: 2.5, explosionForce: 35,
     },
+    {
+        id: 'ufo', name: 'UFO [SF]', cost: 280,
+        shape: 'cylinder', color: 0xaab4c2, emissive: 0x2266ff,
+        size: 0.16, height: 0.06, mass: 0.6, health: 3, points: 80,
+        explosive: false, explosionRadius: 0, explosionForce: 0,
+    },
+    {
+        id: 'robot', name: 'ロボット [SF]', cost: 420,
+        shape: 'box', color: 0x8a98aa, emissive: 0x113355,
+        size: 0.18, height: 0.18, mass: 1.2, health: 3, points: 90,
+        explosive: false, explosionRadius: 0, explosionForce: 0,
+    },
 ];
 
 export function getWeapon(id: string): WeaponDef {

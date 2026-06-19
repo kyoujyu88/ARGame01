@@ -4,6 +4,29 @@
 
 export class SoundManager {
     private ctx: AudioContext | null = null;
+    private muted = false;
+
+    private static readonly STORAGE_KEY = 'argame01_muted';
+
+    constructor() {
+        this.muted = localStorage.getItem(SoundManager.STORAGE_KEY) === '1';
+    }
+
+    public isMuted(): boolean {
+        return this.muted;
+    }
+
+    public setMuted(muted: boolean) {
+        this.muted = muted;
+        try {
+            localStorage.setItem(SoundManager.STORAGE_KEY, muted ? '1' : '0');
+        } catch { /* noop */ }
+    }
+
+    public toggleMuted(): boolean {
+        this.setMuted(!this.muted);
+        return this.muted;
+    }
 
     private ensureCtx(): AudioContext {
         if (!this.ctx) {
@@ -18,6 +41,7 @@ export class SoundManager {
 
     // 単純なトーン（周波数スライド対応）
     private tone(freq: number, dur: number, type: OscillatorType, gain: number, slideTo?: number) {
+        if (this.muted) return;
         const ctx = this.ensureCtx();
         const t = ctx.currentTime;
         const osc = ctx.createOscillator();
@@ -37,6 +61,7 @@ export class SoundManager {
 
     // ホワイトノイズの破裂音（爆発・破壊用）
     private noiseBurst(dur: number, lowpass: number, gain: number) {
+        if (this.muted) return;
         const ctx = this.ensureCtx();
         const t = ctx.currentTime;
         const buffer = ctx.createBuffer(1, Math.floor(ctx.sampleRate * dur), ctx.sampleRate);
