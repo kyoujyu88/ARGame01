@@ -77,6 +77,11 @@ export class GameSystem {
     // 加点時に呼ばれるフック（ゲームモードのランスコア集計用）
     public onScored?: (points: number) => void;
 
+    // コンボ（連続撃破でスコア倍率アップ）
+    private combo = 0;
+    private comboTimer: number | null = null;
+    private static readonly COMBO_WINDOW = 3000; // この時間内に撃破すると継続(ms)
+
     // === スコア／ポイント ===
     public addScore(points: number) {
         this.score += points;
@@ -84,6 +89,28 @@ export class GameSystem {
         this.save();
         this.refreshShopUI();
         if (this.onScored) this.onScored(points);
+    }
+
+    // 標的撃破：コンボを進めて倍率付きで加点する。戻り値は演出用。
+    public registerKill(basePoints: number): { awarded: number; multiplier: number; combo: number } {
+        this.combo += 1;
+        const multiplier = Math.min(5, 1 + Math.floor((this.combo - 1) / 3));
+        const awarded = basePoints * multiplier;
+        this.addScore(awarded);
+
+        this.uiManager.updateCombo(this.combo >= 2 ? `COMBO x${this.combo}　(${multiplier}倍)` : null);
+
+        // コンボ継続タイマーをリセット
+        if (this.comboTimer !== null) clearTimeout(this.comboTimer);
+        this.comboTimer = window.setTimeout(() => this.resetCombo(), GameSystem.COMBO_WINDOW);
+
+        return { awarded, multiplier, combo: this.combo };
+    }
+
+    public resetCombo() {
+        this.combo = 0;
+        if (this.comboTimer !== null) { clearTimeout(this.comboTimer); this.comboTimer = null; }
+        this.uiManager.updateCombo(null);
     }
 
     public getScore() {

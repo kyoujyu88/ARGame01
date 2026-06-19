@@ -129,6 +129,44 @@ canvas {
   max-width: 80%;
 }
 
+/* 弾薬表示 */
+#ammo-display {
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.8);
+  pointer-events: none;
+}
+
+/* コンボ表示 */
+#combo-display {
+  display: none;
+  position: absolute;
+  top: 150px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffd23f;
+  font-size: 22px;
+  font-weight: bold;
+  pointer-events: none;
+  z-index: 60;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.9);
+}
+#combo-display.pop {
+  animation: combo-pop 0.25s ease-out;
+}
+@keyframes combo-pop {
+  0% { transform: translateX(-50%) scale(1.6); }
+  100% { transform: translateX(-50%) scale(1); }
+}
+
+/* 命中マーカー（中央レティクルを一瞬赤く拡大） */
+#crosshair.hit {
+  border-color: #ff3b3b;
+  transform: translate(-50%, -50%) scale(1.5);
+  transition: transform 0.05s ease-out;
+}
+
 /* バージョン表示 */
 #version-label {
   position: absolute;

@@ -28,6 +28,12 @@ export interface WeaponDef {
     burst: number;
     /** 拡散角 (rad)。散弾系で使用 */
     spread: number;
+    /** マガジンの弾数（1トリガー=1消費）。Infinity で無限 */
+    ammo: number;
+    /** 連射の最小間隔 (秒) */
+    fireCooldown: number;
+    /** リロードにかかる時間 (秒) */
+    reloadTime: number;
     /** 着弾時に爆発（周囲に衝撃を与える）するか */
     explosive: boolean;
     /** 爆発の影響半径 (m) */
@@ -63,36 +69,42 @@ export const WEAPONS: WeaponDef[] = [
         id: 'ball', name: 'ベースボール', cost: 0,
         radius: 0.05, projectileShape: 'sphere', color: 0xffffff, emissive: 0x000000,
         speed: 12, mass: 0.5, burst: 1, spread: 0,
+        ammo: Infinity, fireCooldown: 0.3, reloadTime: 0,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'machineGun', name: 'マシンガン', cost: 100,
         radius: 0.025, projectileShape: 'box', color: 0xffcc00, emissive: 0x553300,
         speed: 28, mass: 0.12, burst: 3, spread: 0.04,
+        ammo: 40, fireCooldown: 0.1, reloadTime: 1.6,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'plasma', name: 'プラズマキャノン [SF]', cost: 250,
         radius: 0.12, projectileShape: 'crystal', color: 0x00ffff, emissive: 0x00aaff,
         speed: 18, mass: 1.2, burst: 1, spread: 0,
+        ammo: 6, fireCooldown: 0.7, reloadTime: 1.8,
         explosive: true, explosionRadius: 1.2, explosionForce: 14,
     },
     {
         id: 'scatter', name: 'スキャッターブラスター [SF]', cost: 350,
         radius: 0.035, projectileShape: 'tetra', color: 0xff00ff, emissive: 0x660066,
         speed: 22, mass: 0.15, burst: 6, spread: 0.22,
+        ammo: 10, fireCooldown: 0.8, reloadTime: 1.5,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'railgun', name: 'レールガン [SF]', cost: 500,
         radius: 0.03, projectileShape: 'cylinder', color: 0xeaffff, emissive: 0x66ccff,
         speed: 60, mass: 2.5, burst: 1, spread: 0,
+        ammo: 5, fireCooldown: 1.0, reloadTime: 2.0,
         explosive: false, explosionRadius: 0, explosionForce: 0,
     },
     {
         id: 'rocket', name: 'ロケットランチャー [SF]', cost: 750,
         radius: 0.08, projectileShape: 'cone', color: 0xff8800, emissive: 0xff4400,
         speed: 20, mass: 1.0, burst: 1, spread: 0,
+        ammo: 4, fireCooldown: 1.2, reloadTime: 2.2,
         explosive: true, explosionRadius: 2.0, explosionForce: 28,
     },
 ];

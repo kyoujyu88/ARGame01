@@ -44,6 +44,8 @@ export class UIManager {
 
                 <div id="mode-status"></div>
 
+                <div id="combo-display"></div>
+
                 <div id="scan-overlay">
                     <div class="scan-icon"></div>
                     <p id="scan-text">机や床などの平面を探しています...</p>
@@ -63,6 +65,7 @@ export class UIManager {
                 <div id="version-label">${APP_VERSION}</div>
 
                 <div id="bottom-panel">
+                    <div id="ammo-display"></div>
                     <!-- WebXRのボタンはThree.jsのARButtonを利用するかカスタムで作成 -->
                     <div id="ar-button-container"></div>
                     <div id="action-buttons">
@@ -159,6 +162,38 @@ export class UIManager {
         const textEl = document.getElementById('result-text');
         if (textEl) textEl.innerHTML = text;
         overlay?.classList.add('active');
+    }
+
+    // 弾薬表示
+    public updateAmmo(text: string) {
+        const el = document.getElementById('ammo-display');
+        if (el) el.innerText = text;
+    }
+
+    // コンボ表示（null で非表示）
+    public updateCombo(text: string | null) {
+        const el = document.getElementById('combo-display');
+        if (!el) return;
+        if (text) {
+            el.innerText = text;
+            el.style.display = 'block';
+            // 出るたびに小さくポップさせる
+            el.classList.remove('pop');
+            void el.offsetWidth; // reflow でアニメ再生
+            el.classList.add('pop');
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    // 命中マーカー（中央レティクルを一瞬強調）
+    public hitMarker() {
+        const el = document.getElementById('crosshair');
+        if (!el) return;
+        el.classList.remove('hit');
+        void el.offsetWidth;
+        el.classList.add('hit');
+        window.setTimeout(() => el.classList.remove('hit'), 140);
     }
 
     public updateScore(score: number) {
