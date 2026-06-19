@@ -128,25 +128,25 @@ export const TARGETS: TargetDef[] = [
     {
         id: 'barrel', name: '爆発ドラム缶', cost: 50,
         shape: 'cylinder', color: 0xff3333, emissive: 0x330000,
-        size: 0.15, height: 0.4, mass: 2, health: 1, points: 30,
+        size: 0.15, height: 0.4, mass: 2, health: 2, points: 30,
         explosive: true, explosionRadius: 1.5, explosionForce: 18, motion: 'none',
     },
     {
         id: 'can', name: 'スチール缶', cost: 80,
         shape: 'cylinder', color: 0xb0b8c0, emissive: 0x000000,
-        size: 0.08, height: 0.18, mass: 0.4, health: 1, points: 20,
+        size: 0.08, height: 0.18, mass: 0.4, health: 1, points: 15,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
     },
     {
         id: 'bowling', name: 'ボウリング球', cost: 120,
         shape: 'sphere', color: 0x202028, emissive: 0x000000,
-        size: 0.12, height: 0, mass: 4, health: 4, points: 25,
+        size: 0.12, height: 0, mass: 4, health: 5, points: 40,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
     },
     {
         id: 'crystal', name: 'エネルギークリスタル [SF]', cost: 200,
         shape: 'crystal', color: 0x00ffaa, emissive: 0x00ff88,
-        size: 0.15, height: 0, mass: 0.8, health: 3, points: 50,
+        size: 0.15, height: 0, mass: 0.8, health: 3, points: 60,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'hover',
     },
     {
@@ -158,31 +158,31 @@ export const TARGETS: TargetDef[] = [
     {
         id: 'reactor', name: '核融合リアクター [SF]', cost: 500,
         shape: 'cylinder', color: 0xffee44, emissive: 0xffaa00,
-        size: 0.2, height: 0.45, mass: 3, health: 4, points: 100,
+        size: 0.2, height: 0.45, mass: 3, health: 6, points: 150,
         explosive: true, explosionRadius: 2.5, explosionForce: 35, motion: 'none',
     },
     {
         id: 'ufo', name: 'UFO [SF]', cost: 280,
         shape: 'cylinder', color: 0xaab4c2, emissive: 0x2266ff,
-        size: 0.16, height: 0.06, mass: 0.6, health: 3, points: 80,
+        size: 0.16, height: 0.06, mass: 0.6, health: 4, points: 90,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'spin',
     },
     {
         id: 'robot', name: 'ロボット [SF]', cost: 420,
         shape: 'box', color: 0x8a98aa, emissive: 0x113355,
-        size: 0.18, height: 0.18, mass: 1.2, health: 3, points: 90,
+        size: 0.18, height: 0.18, mass: 1.2, health: 5, points: 110,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'strafe',
     },
     {
         id: 'glass', name: 'ガラス板', cost: 60,
         shape: 'panel', color: 0x99ddee, emissive: 0x000000,
-        size: 0.28, height: 0.34, mass: 1, health: 2, points: 40,
+        size: 0.28, height: 0.34, mass: 1, health: 1, points: 20,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none', glass: true,
     },
     {
         id: 'boss', name: 'ボス [SF]', cost: 2000,
         shape: 'box', color: 0x553388, emissive: 0x8822ff,
-        size: 0.4, height: 0.4, mass: 6, health: 20, points: 500,
+        size: 0.4, height: 0.4, mass: 6, health: 25, points: 800,
         explosive: true, explosionRadius: 3.0, explosionForce: 40, motion: 'strafe',
     },
 ];
