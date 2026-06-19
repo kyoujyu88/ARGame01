@@ -2,7 +2,7 @@
 // ここにエントリを追加するだけでショップ・スポーン・発射処理に反映される
 // データ駆動の構成にしている。
 
-export type ShapeKind = 'box' | 'cylinder' | 'sphere' | 'crystal';
+export type ShapeKind = 'box' | 'cylinder' | 'sphere' | 'crystal' | 'panel';
 
 // 弾の見た目の形状
 export type ProjectileShape = 'sphere' | 'box' | 'cylinder' | 'cone' | 'crystal' | 'tetra';
@@ -67,6 +67,8 @@ export interface TargetDef {
     explosionForce: number;
     /** 動き方（none=静止） */
     motion: TargetMotion;
+    /** ガラスのように半透明＆破片が三角片になる */
+    glass?: boolean;
     /** 外部3Dモデル(GLTF)のパス。あれば優先して使う */
     modelUrl?: string;
 }
@@ -170,6 +172,12 @@ export const TARGETS: TargetDef[] = [
         shape: 'box', color: 0x8a98aa, emissive: 0x113355,
         size: 0.18, height: 0.18, mass: 1.2, health: 3, points: 90,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'strafe',
+    },
+    {
+        id: 'glass', name: 'ガラス板', cost: 60,
+        shape: 'panel', color: 0x99ddee, emissive: 0x000000,
+        size: 0.28, height: 0.34, mass: 1, health: 2, points: 40,
+        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none', glass: true,
     },
     {
         id: 'boss', name: 'ボス [SF]', cost: 2000,

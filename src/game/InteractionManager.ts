@@ -220,11 +220,14 @@ export class InteractionManager {
         const center = new CANNON.Vec3(body.position.x, body.position.y, body.position.z);
         const pos = new THREE.Vector3(center.x, center.y, center.z);
 
-        // 爆発系は周囲を吹き飛ばす＋大きな爆発演出
+        // 爆発系は周囲を吹き飛ばす＋大きな爆発演出。ガラスは専用の割れ音
         if (def.explosive) {
             this.gameManager.applyExplosion(center, def.explosionRadius, def.explosionForce);
             this.spawnExplosionFlash(pos, def.explosionRadius, 0xffaa33);
             this.sound.explosion();
+        } else if (def.glass) {
+            this.spawnExplosionFlash(pos, def.size * 2, 0xcceeff);
+            this.sound.glass();
         } else {
             this.spawnExplosionFlash(pos, def.size * 4, def.emissive || def.color);
             this.sound.break();
@@ -336,20 +339,18 @@ export class InteractionManager {
 
     // 破壊時の破片（小さな立方体）を飛び散らせる
     private spawnFragments(def: TargetDef, center: CANNON.Vec3) {
-        const count = 8;
-        const fragSize = Math.max(0.03, def.size / 3);
+        // 破片は元オブジェクトと同じ素材を使い、見た目（色・テクスチャ・透明度）を保つ
+        const baseMaterial = this.makeTargetMaterial(def);
+        const count = def.glass ? 14 : 9;
+        const fragSize = Math.max(0.025, def.size / (def.glass ? 4 : 3));
 
         for (let i = 0; i < count; i++) {
-            const geometry = new THREE.BoxGeometry(fragSize, fragSize, fragSize);
-            const material = new THREE.MeshStandardMaterial({
-                color: def.color,
-                emissive: def.emissive,
-                emissiveIntensity: def.emissive ? 0.6 : 0,
-                metalness: 0.3,
-                roughness: 0.7,
-            });
+            const geometry = this.makeFragmentGeometry(def, fragSize);
+            const material = baseMaterial.clone();
             const mesh = new THREE.Mesh(geometry, material);
             mesh.castShadow = true;
+            // 破片ごとに向きをランダムにして“砕けた”印象に
+            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
 
             const px = center.x + (Math.random() - 0.5) * fragSize * 2;
             const py = center.y + (Math.random() - 0.5) * fragSize * 2;
@@ -361,7 +362,8 @@ export class InteractionManager {
                 material: this.physicsMaterial,
                 position: new CANNON.Vec3(px, py, pz),
             });
-            body.addShape(new CANNON.Box(new CANNON.Vec3(fragSize / 2, fragSize / 2, fragSize / 2)));
+            body.addShape(new CANNON.Sphere(fragSize * 0.5));
+            body.quaternion.setFromEuler(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
 
             // 外側＋上方向にランダムに飛び散らせる
             body.velocity.set(
@@ -380,6 +382,28 @@ export class InteractionManager {
             // 破片は一定時間後に自動で片付ける
             setTimeout(() => this.gameManager.removeBody(body), 5000);
         }
+    }
+
+    // 破片の形状を元オブジェクトの種類に合わせて生成する（“らしく”壊す）
+    private makeFragmentGeometry(def: TargetDef, s: number): THREE.BufferGeometry {
+        if (def.glass || def.shape === 'panel') {
+            // ガラス片：薄い三角のかけら
+            return new THREE.CylinderGeometry(s * 0.9, s * 0.2, 0.012, 3);
+        }
+        if (def.shape === 'crystal') {
+            // 結晶のかけら
+            return new THREE.TetrahedronGeometry(s, 0);
+        }
+        if (def.shape === 'sphere') {
+            // 球の破片（小さな粒）
+            return new THREE.SphereGeometry(s * 0.6, 8, 8);
+        }
+        if (def.shape === 'cylinder') {
+            // 金属片（曲がった板状のかけら）
+            return new THREE.BoxGeometry(s * 1.2, s * 0.4, s * 0.8);
+        }
+        // 木箱など：木片
+        return new THREE.BoxGeometry(s, s * (0.6 + Math.random() * 0.8), s * 0.7);
     }
 
     // 標的の見た目（Mesh）と物理形状（Shape）を定義から生成する
@@ -411,6 +435,14 @@ export class InteractionManager {
                 centerOffsetY = def.size;
                 break;
             }
+            case 'panel': {
+                // 薄い板（ガラス板など）
+                const depth = 0.03;
+                geometry = new THREE.BoxGeometry(def.size, def.height, depth);
+                shape = new CANNON.Box(new CANNON.Vec3(def.size / 2, def.height / 2, depth / 2));
+                centerOffsetY = def.height / 2;
+                break;
+            }
             case 'box':
             default: {
                 geometry = new THREE.BoxGeometry(def.size, def.size, def.size);
@@ -420,15 +452,7 @@ export class InteractionManager {
             }
         }
 
-        const texture = this.makeTexture(def);
-        const material = new THREE.MeshStandardMaterial({
-            color: def.color,
-            emissive: def.emissive,
-            emissiveIntensity: def.emissive ? 0.8 : 0,
-            metalness: def.id === 'can' || def.id === 'barrel' ? 0.7 : 0.3,
-            roughness: 0.6,
-            map: texture,
-        });
+        const material = this.makeTargetMaterial(def);
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(position.x, position.y + centerOffsetY, position.z);
 
@@ -439,6 +463,27 @@ export class InteractionManager {
         mesh.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
 
         return { mesh, shape, centerOffsetY };
+    }
+
+    // 標的の素材を生成する（本体と破片で同じ見た目を使う）。
+    private makeTargetMaterial(def: TargetDef): THREE.MeshStandardMaterial {
+        if (def.glass) {
+            return new THREE.MeshStandardMaterial({
+                color: def.color,
+                metalness: 0.1,
+                roughness: 0.05,
+                transparent: true,
+                opacity: 0.45,
+            });
+        }
+        return new THREE.MeshStandardMaterial({
+            color: def.color,
+            emissive: def.emissive,
+            emissiveIntensity: def.emissive ? 0.8 : 0,
+            metalness: def.id === 'can' || def.id === 'barrel' ? 0.7 : 0.3,
+            roughness: 0.6,
+            map: this.makeTexture(def),
+        });
     }
 
     // 標的のテクスチャをコードで生成する（外部画像なしで質感を出す）。
