@@ -1,15 +1,24 @@
 import type { WeaponDef, TargetDef } from '../game/Items';
+import { SoundManager } from '../audio/SoundManager';
+import { APP_VERSION } from '../version';
 
 interface ShopCallbacks {
     onBuy: (id: string, kind: 'weapon' | 'target') => void;
     onEquip: (id: string, kind: 'weapon' | 'target') => void;
 }
 
+export type GameMode = 'free' | 'time' | 'wave';
+
 export class UIManager {
     private scoreElement: HTMLElement | null = null;
     private shopMenu: HTMLElement | null = null;
+    private sound: SoundManager;
 
-    constructor() {
+    // モード選択時に呼ばれる（GameModeManager が設定する）
+    public onSelectMode?: (mode: GameMode) => void;
+
+    constructor(sound: SoundManager) {
+        this.sound = sound;
         this.initUI();
     }
 
@@ -21,8 +30,19 @@ export class UIManager {
             <div id="ui-container">
                 <div id="top-panel">
                     <div id="score-display">Points: 0</div>
-                    <button id="shop-btn" class="hud-button">Shop</button>
+                    <div class="top-right">
+                        <button id="sound-btn" class="hud-button icon-btn">🔊</button>
+                        <button id="shop-btn" class="hud-button">Shop</button>
+                    </div>
                 </div>
+
+                <div id="mode-bar">
+                    <button class="mode-btn active" data-mode="free">フリー</button>
+                    <button class="mode-btn" data-mode="time">タイムアタック</button>
+                    <button class="mode-btn" data-mode="wave">ウェーブ</button>
+                </div>
+
+                <div id="mode-status"></div>
 
                 <div id="scan-overlay">
                     <div class="scan-icon"></div>
@@ -32,6 +52,15 @@ export class UIManager {
                 <div id="crosshair"></div>
 
                 <p id="shoot-hint">画面をタップで発射 🔫</p>
+
+                <div id="result-overlay">
+                    <div id="result-panel">
+                        <div id="result-text"></div>
+                        <button id="result-close" class="hud-button" style="margin-top:14px;width:100%;">OK</button>
+                    </div>
+                </div>
+
+                <div id="version-label">${APP_VERSION}</div>
 
                 <div id="bottom-panel">
                     <!-- WebXRのボタンはThree.jsのARButtonを利用するかカスタムで作成 -->
@@ -78,6 +107,58 @@ export class UIManager {
         document.getElementById('close-shop-btn')?.addEventListener('click', closeShop);
         // 背景（バックドロップ）タップでも閉じる。裏のボタンへのタップ貫通も防ぐ
         backdrop?.addEventListener('click', closeShop);
+
+        // 効果音 ON/OFF トグル
+        const soundBtn = document.getElementById('sound-btn');
+        const renderSoundIcon = () => {
+            if (soundBtn) soundBtn.innerText = this.sound.isMuted() ? '🔇' : '🔊';
+        };
+        renderSoundIcon();
+        soundBtn?.addEventListener('click', () => {
+            this.sound.toggleMuted();
+            renderSoundIcon();
+        });
+
+        // ゲームモード選択
+        document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
+            btn.addEventListener('click', () => {
+                const mode = btn.dataset.mode as GameMode;
+                this.setActiveMode(mode);
+                this.onSelectMode?.(mode);
+            });
+        });
+
+        // リザルトを閉じる
+        document.getElementById('result-close')?.addEventListener('click', () => {
+            document.getElementById('result-overlay')?.classList.remove('active');
+        });
+    }
+
+    // モードボタンのハイライトを更新
+    public setActiveMode(mode: GameMode) {
+        document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+    }
+
+    // ゲームモード中のステータス（残り時間・Wave 等）。null で非表示。
+    public updateModeStatus(text: string | null) {
+        const el = document.getElementById('mode-status');
+        if (!el) return;
+        if (text) {
+            el.innerText = text;
+            el.style.display = 'block';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    // リザルト表示
+    public showResult(text: string) {
+        const overlay = document.getElementById('result-overlay');
+        const textEl = document.getElementById('result-text');
+        if (textEl) textEl.innerHTML = text;
+        overlay?.classList.add('active');
     }
 
     public updateScore(score: number) {

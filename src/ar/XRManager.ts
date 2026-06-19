@@ -168,4 +168,11 @@ export class XRManager {
         }
         return null;
     }
+
+    // レティクル（検出面マーカー）のワールド座標。未検出なら null。
+    public getReticlePosition(): THREE.Vector3 | null {
+        const matrix = this.getReticleMatrix();
+        if (!matrix) return null;
+        return new THREE.Vector3().setFromMatrixPosition(matrix);
+    }
 }

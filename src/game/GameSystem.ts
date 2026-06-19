@@ -74,12 +74,16 @@ export class GameSystem {
         }
     }
 
+    // 加点時に呼ばれるフック（ゲームモードのランスコア集計用）
+    public onScored?: (points: number) => void;
+
     // === スコア／ポイント ===
     public addScore(points: number) {
         this.score += points;
         this.uiManager.updateScore(this.score);
         this.save();
         this.refreshShopUI();
+        if (this.onScored) this.onScored(points);
     }
 
     public getScore() {

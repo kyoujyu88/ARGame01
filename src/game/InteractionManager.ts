@@ -11,7 +11,7 @@ export class InteractionManager {
     private gameManager: GameManager;
     private xrManager: XRManager;
     private gameSystem: GameSystem;
-    private sound = new SoundManager();
+    private sound: SoundManager;
 
     // 物理マテリアルの定義
     private physicsMaterial = new CANNON.Material('standard');
@@ -21,10 +21,11 @@ export class InteractionManager {
     // 影を受けるための見えない床（影だけ描画する ShadowMaterial）
     private shadowGround: THREE.Mesh;
 
-    constructor(gameManager: GameManager, xrManager: XRManager, gameSystem: GameSystem) {
+    constructor(gameManager: GameManager, xrManager: XRManager, gameSystem: GameSystem, sound: SoundManager) {
         this.gameManager = gameManager;
         this.xrManager = xrManager;
         this.gameSystem = gameSystem;
+        this.sound = sound;
 
         this.groundBody = this.setupPhysicsContact();
         this.shadowGround = this.setupShadowGround();
@@ -95,20 +96,24 @@ export class InteractionManager {
         });
     }
 
+    // 手動配置（フリーモードの「配置」ボタン）
     private spawnTarget(): boolean {
-        const matrix = this.xrManager.getReticleMatrix();
-        if (!matrix) {
+        const position = this.xrManager.getReticlePosition();
+        if (!position) {
             alert('平面が認識されていません。カメラを動かして緑のマークが出てからお試しください。');
             return false;
         }
+        const def = getTarget(this.gameSystem.currentTarget);
+        this.placeTarget(def, position);
+        return true;
+    }
 
-        const position = new THREE.Vector3();
-        position.setFromMatrixPosition(matrix);
-
+    // 指定位置に標的を1体配置する。modes からも呼ばれる。
+    // onDestroyed は破壊時に呼ばれる（ゲームモードの残数カウント用）。
+    public placeTarget(def: TargetDef, position: THREE.Vector3, onDestroyed?: () => void) {
         // 検出した平面の高さに地面を合わせる（浮き防止）
         this.updateGroundHeight(position.y);
 
-        const def = getTarget(this.gameSystem.currentTarget);
         const { mesh, shape, centerOffsetY } = this.createTargetVisual(def, position);
 
         const body = new CANNON.Body({
@@ -118,8 +123,11 @@ export class InteractionManager {
         });
         body.addShape(shape);
 
-        // ドローンは少し浮いた状態から始める（SF演出）
-        if (def.id === 'drone') {
+        // 破壊時コールバックをボディに紐づける（breakTarget から呼ぶ）
+        if (onDestroyed) (body as any).__onDestroyed = onDestroyed;
+
+        // ドローン・UFOは少し浮いた状態から始める（SF演出）
+        if (def.id === 'drone' || def.id === 'ufo') {
             body.position.y += 0.3;
             mesh.position.y += 0.3;
         }
@@ -149,7 +157,6 @@ export class InteractionManager {
         });
 
         this.gameManager.addPhysicsObject(mesh, body, 'target');
-        return true;
     }
 
     // 標的を破壊：本体を消し、破片を飛び散らせ、加点・爆発する
@@ -173,6 +180,10 @@ export class InteractionManager {
 
         // 破壊でポイント加算
         this.gameSystem.addScore(def.points);
+
+        // ゲームモード用の破壊コールバック
+        const onDestroyed = (body as any).__onDestroyed as (() => void) | undefined;
+        if (onDestroyed) onDestroyed();
     }
 
     // ヒット時の小さなスパーク（短命の発光球）
@@ -359,6 +370,39 @@ export class InteractionManager {
                 ring.rotation.x = Math.PI / 2;
                 ring.position.y = y;
                 mesh.add(ring);
+            }
+        } else if (def.id === 'ufo') {
+            // UFO：上部ドーム＋底面の発光ライト
+            const dome = new THREE.Mesh(
+                new THREE.SphereGeometry(def.size * 0.5, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+                new THREE.MeshStandardMaterial({ color: 0x66ddff, emissive: 0x2266ff, emissiveIntensity: 0.6, metalness: 0.4, roughness: 0.3 }),
+            );
+            dome.position.y = def.height * 0.4;
+            mesh.add(dome);
+            const lightMat = new THREE.MeshStandardMaterial({ color: 0x00ffff, emissive: 0x00ffff, emissiveIntensity: 1.4 });
+            for (let i = 0; i < 6; i++) {
+                const a = (i / 6) * Math.PI * 2;
+                const led = new THREE.Mesh(new THREE.SphereGeometry(def.size * 0.07, 8, 8), lightMat);
+                led.position.set(Math.cos(a) * def.size * 0.85, -def.height * 0.2, Math.sin(a) * def.size * 0.85);
+                mesh.add(led);
+            }
+        } else if (def.id === 'robot') {
+            // ロボット：頭・目・腕を付ける
+            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x6a7888, metalness: 0.6, roughness: 0.4 });
+            const head = new THREE.Mesh(new THREE.BoxGeometry(def.size * 0.6, def.size * 0.5, def.size * 0.6), bodyMat);
+            head.position.y = def.size * 0.75;
+            mesh.add(head);
+            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0xff2222, emissiveIntensity: 1.4 });
+            for (const dx of [-0.15, 0.15]) {
+                const eye = new THREE.Mesh(new THREE.SphereGeometry(def.size * 0.06, 8, 8), eyeMat);
+                eye.position.set(def.size * dx, def.size * 0.78, def.size * 0.3);
+                mesh.add(eye);
+            }
+            const armGeo = new THREE.BoxGeometry(def.size * 0.18, def.size * 0.55, def.size * 0.18);
+            for (const dx of [-0.6, 0.6]) {
+                const arm = new THREE.Mesh(armGeo, bodyMat);
+                arm.position.set(def.size * dx, def.size * 0.05, 0);
+                mesh.add(arm);
             }
         }
     }
