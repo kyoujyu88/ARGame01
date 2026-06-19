@@ -6,12 +6,14 @@ import { GameSystem, GameState } from './GameSystem';
 import { getWeapon, getTarget } from './Items';
 import type { WeaponDef, TargetDef } from './Items';
 import { SoundManager } from '../audio/SoundManager';
+import { UIManager } from '../ui/UIManager';
 
 export class InteractionManager {
     private gameManager: GameManager;
     private xrManager: XRManager;
     private gameSystem: GameSystem;
     private sound: SoundManager;
+    private uiManager: UIManager;
 
     // 物理マテリアルの定義
     private physicsMaterial = new CANNON.Material('standard');
@@ -21,11 +23,24 @@ export class InteractionManager {
     // 影を受けるための見えない床（影だけ描画する ShadowMaterial）
     private shadowGround: THREE.Mesh;
 
-    constructor(gameManager: GameManager, xrManager: XRManager, gameSystem: GameSystem, sound: SoundManager) {
+    // 武器の弾薬・連射・リロード状態
+    private ammoWeaponId = '';
+    private ammoLeft = 0;
+    private reloading = false;
+    private lastShotAt = 0;
+
+    constructor(
+        gameManager: GameManager,
+        xrManager: XRManager,
+        gameSystem: GameSystem,
+        sound: SoundManager,
+        uiManager: UIManager,
+    ) {
         this.gameManager = gameManager;
         this.xrManager = xrManager;
         this.gameSystem = gameSystem;
         this.sound = sound;
+        this.uiManager = uiManager;
 
         this.groundBody = this.setupPhysicsContact();
         this.shadowGround = this.setupShadowGround();
@@ -74,6 +89,7 @@ export class InteractionManager {
         // （前回セッションで SHOOTING のまま終了するとボタンが隠れたままになるため）
         this.gameManager.renderer.xr.addEventListener('sessionstart', () => {
             this.gameSystem.setState(GameState.PLACING);
+            this.refreshAmmoDisplay();
         });
 
         // 画面（ARビューの何もない所）をタップすると弾を発射する。
@@ -132,6 +148,13 @@ export class InteractionManager {
             mesh.position.y += 0.3;
         }
 
+        // HPバー（耐久2以上の標的に表示。被弾で減る緑バー）
+        const hpBarWidth = 0.22;
+        let hpBar: THREE.Sprite | null = null;
+        if (def.health > 1) {
+            hpBar = this.createHpBar(mesh, centerOffsetY, hpBarWidth);
+        }
+
         // 弾を当てるたびに耐久を削り、0 になったら破片に砕く
         let health = def.health;
         let broken = false;
@@ -148,11 +171,14 @@ export class InteractionManager {
                 broken = true;
                 // 衝突コールバック中に world を変更すると不安定なので次のタスクで実行する
                 setTimeout(() => this.breakTarget(def, body), 0);
+                this.uiManager.hitMarker();
             } else {
-                // まだ壊れていないヒット：効果音とスパーク、軽い点滅
+                // まだ壊れていないヒット：効果音とスパーク、軽い点滅、命中マーカー、HPバー更新
                 this.sound.hit();
                 this.spawnHitSpark(body.position, def.color);
                 this.flashMesh(mesh);
+                this.uiManager.hitMarker();
+                if (hpBar) hpBar.scale.x = (health / def.health) * hpBarWidth;
             }
         });
 
@@ -178,12 +204,61 @@ export class InteractionManager {
         this.gameManager.removeBody(body);
         this.spawnFragments(def, center);
 
-        // 破壊でポイント加算
-        this.gameSystem.addScore(def.points);
+        // コンボ倍率つきで加点し、獲得スコアをポップアップ表示
+        const result = this.gameSystem.registerKill(def.points);
+        this.spawnScorePopup(pos, result.awarded, result.multiplier);
 
         // ゲームモード用の破壊コールバック
         const onDestroyed = (body as any).__onDestroyed as (() => void) | undefined;
         if (onDestroyed) onDestroyed();
+    }
+
+    // 標的の頭上にHPバー（背景＋緑バー）を付ける。緑バーのSpriteを返す。
+    private createHpBar(mesh: THREE.Mesh, centerOffsetY: number, width: number): THREE.Sprite {
+        const y = centerOffsetY + 0.06;
+        const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x330000, depthTest: false }));
+        bg.position.set(0, y, 0);
+        bg.center.set(0.5, 0.5);
+        bg.scale.set(width, 0.03, 1);
+        mesh.add(bg);
+
+        const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x33ff66, depthTest: false }));
+        // 左端を基準にして減るようにする
+        fg.center.set(0, 0.5);
+        fg.position.set(-width / 2, y, 0.001);
+        fg.scale.set(width, 0.03, 1);
+        mesh.add(fg);
+        return fg;
+    }
+
+    // 撃破時に「+score」を3Dのフロートテキストで表示する
+    private spawnScorePopup(position: THREE.Vector3, points: number, multiplier: number) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        const label = multiplier > 1 ? `+${points} x${multiplier}` : `+${points}`;
+        ctx.font = 'bold 64px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.lineWidth = 8;
+        ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+        ctx.strokeText(label, 128, 64);
+        ctx.fillStyle = multiplier > 1 ? '#ffd23f' : '#ffffff';
+        ctx.fillText(label, 128, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const material = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false });
+        const sprite = new THREE.Sprite(material);
+        sprite.position.copy(position);
+        sprite.position.y += 0.15;
+        sprite.scale.set(0.3, 0.15, 1);
+
+        this.gameManager.addEffect(sprite, 0.9, (t, obj) => {
+            obj.position.y += 0.004; // ふわっと上昇
+            (((obj as THREE.Sprite).material) as THREE.SpriteMaterial).opacity = 1 - t;
+        });
     }
 
     // ヒット時の小さなスパーク（短命の発光球）
@@ -410,6 +485,33 @@ export class InteractionManager {
     private shootWeapon() {
         const def = getWeapon(this.gameSystem.currentWeapon);
 
+        // 装備が変わったらマガジンを満タンにする
+        if (def.id !== this.ammoWeaponId) {
+            this.ammoWeaponId = def.id;
+            this.ammoLeft = def.ammo;
+            this.reloading = false;
+            this.refreshAmmoDisplay();
+        }
+
+        // リロード中は撃てない
+        if (this.reloading) return;
+
+        // 連射レート制限
+        const now = performance.now() / 1000;
+        if (now - this.lastShotAt < def.fireCooldown) return;
+
+        // 弾切れ → リロード開始
+        if (this.ammoLeft <= 0) {
+            this.startReload(def);
+            return;
+        }
+
+        this.lastShotAt = now;
+        if (Number.isFinite(def.ammo)) {
+            this.ammoLeft -= 1;
+        }
+        this.refreshAmmoDisplay();
+
         // XRカメラの実際のワールド姿勢を使う（背景が消える＝弾が原点に湧く問題の対策）
         const { position: camPos, quaternion: camQuat } = this.gameManager.getCameraPose();
         const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat);
@@ -419,6 +521,40 @@ export class InteractionManager {
         // burst 発分の弾を生成（マシンガン/散弾対応）
         for (let i = 0; i < def.burst; i++) {
             this.spawnProjectile(def, camPos, forward);
+        }
+
+        // 撃ち切ったら自動リロード
+        if (Number.isFinite(def.ammo) && this.ammoLeft <= 0) {
+            this.startReload(def);
+        }
+    }
+
+    private startReload(def: WeaponDef) {
+        if (this.reloading || !Number.isFinite(def.ammo)) return;
+        this.reloading = true;
+        this.uiManager.updateAmmo('リロード中…');
+        window.setTimeout(() => {
+            // リロード完了時にまだ同じ武器なら反映
+            if (this.gameSystem.currentWeapon === def.id) {
+                this.ammoLeft = def.ammo;
+                this.reloading = false;
+                this.refreshAmmoDisplay();
+            }
+        }, def.reloadTime * 1000);
+    }
+
+    // 弾薬表示を更新する（AR開始時や装備変更時にも呼ぶ）
+    public refreshAmmoDisplay() {
+        const def = getWeapon(this.gameSystem.currentWeapon);
+        if (this.ammoWeaponId !== def.id) {
+            this.ammoWeaponId = def.id;
+            this.ammoLeft = def.ammo;
+            this.reloading = false;
+        }
+        if (!Number.isFinite(def.ammo)) {
+            this.uiManager.updateAmmo('🔫 ∞');
+        } else {
+            this.uiManager.updateAmmo(`🔫 ${this.ammoLeft} / ${def.ammo}`);
         }
     }
 

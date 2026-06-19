@@ -27,6 +27,7 @@ class App {
             this.xrManager,
             this.gameSystem,
             this.sound,
+            this.uiManager,
         );
         // ゲームモード（フリー/タイムアタック/ウェーブ）を管理する
         new GameModeManager(
