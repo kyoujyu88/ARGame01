@@ -176,12 +176,8 @@ export class InteractionManager {
             }).catch(() => { /* 失敗時はプリミティブのまま */ });
         }
 
-        // HPバー（耐久2以上の標的に表示。被弾で減る緑バー）
-        const hpBarWidth = 0.22;
-        let hpBar: THREE.Sprite | null = null;
-        if (def.health > 1) {
-            hpBar = this.createHpBar(mesh, centerOffsetY, hpBarWidth);
-        }
+        // HPバー（耐久2以上の標的に表示。被弾で減る）
+        const hpBar = def.health > 1 ? this.createHpBar(mesh, centerOffsetY) : null;
 
         // 弾を当てるたびに耐久を削り、0 になったら破片に砕く
         let health = def.health;
@@ -208,7 +204,7 @@ export class InteractionManager {
                 this.spawnHitSpark(body.position, def.color);
                 this.flashMesh(mesh);
                 this.uiManager.hitMarker();
-                if (hpBar) hpBar.scale.x = Math.max(0, health / def.health) * hpBarWidth;
+                if (hpBar) hpBar.set(health / def.health);
             }
         });
 
@@ -247,21 +243,29 @@ export class InteractionManager {
     }
 
     // 標的の頭上にHPバー（背景＋緑バー）を付ける。緑バーのSpriteを返す。
-    private createHpBar(mesh: THREE.Mesh, centerOffsetY: number, width: number): THREE.Sprite {
-        const y = centerOffsetY + 0.06;
-        const bg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x330000, depthTest: false }));
-        bg.position.set(0, y, 0);
-        bg.center.set(0.5, 0.5);
-        bg.scale.set(width, 0.03, 1);
-        mesh.add(bg);
+    // 標的の頭上にHPバーを付ける。1枚のスプライトを描き直す方式（二重表示を防ぐ）。
+    // 戻り値の set(ratio) で残量(0..1)を更新する。
+    private createHpBar(mesh: THREE.Mesh, centerOffsetY: number): { set: (ratio: number) => void } {
+        const canvas = document.createElement('canvas');
+        canvas.width = 64; canvas.height = 10;
+        const ctx = canvas.getContext('2d')!;
+        const tex = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+        sprite.position.set(0, centerOffsetY + 0.08, 0);
+        sprite.scale.set(0.24, 0.04, 1);
+        mesh.add(sprite);
 
-        const fg = new THREE.Sprite(new THREE.SpriteMaterial({ color: 0x33ff66, depthTest: false }));
-        // 左端を基準にして減るようにする
-        fg.center.set(0, 0.5);
-        fg.position.set(-width / 2, y, 0.001);
-        fg.scale.set(width, 0.03, 1);
-        mesh.add(fg);
-        return fg;
+        const draw = (ratio: number) => {
+            const r = Math.max(0, Math.min(1, ratio));
+            ctx.clearRect(0, 0, 64, 10);
+            ctx.fillStyle = 'rgba(0,0,0,0.7)';
+            ctx.fillRect(0, 0, 64, 10);
+            ctx.fillStyle = r > 0.5 ? '#33ff66' : (r > 0.25 ? '#ffd23f' : '#ff4444');
+            ctx.fillRect(1, 1, 62 * r, 8);
+            tex.needsUpdate = true;
+        };
+        draw(1);
+        return { set: draw };
     }
 
     // 撃破時に「+score」を3Dのフロートテキストで表示する

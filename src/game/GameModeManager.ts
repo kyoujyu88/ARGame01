@@ -27,9 +27,12 @@ export class GameModeManager {
 
     private tickTimer: number | null = null;
     private spawnTimer: number | null = null;
+    private waveTimeout: number | null = null;
+    private spawning = false; // ウェーブの標的を出している最中か
 
     private static readonly TIME_LIMIT = 60; // タイムアタックの制限時間（秒）
     private static readonly MAX_ALIVE = 6; // タイムアタックで同時に存在する標的の上限
+    private static readonly WAVE_TIME_LIMIT = 30000; // 1ウェーブの制限時間(ms)。残党がいても次へ
     private static readonly BEST_TIME_KEY = 'argame01_best_time';
     private static readonly BEST_WAVE_KEY = 'argame01_best_wave';
 
@@ -130,18 +133,31 @@ export class GameModeManager {
     }
 
     private spawnWaveTargets() {
+        if (this.waveTimeout !== null) { clearTimeout(this.waveTimeout); this.waveTimeout = null; }
+
         // 5の倍数のウェーブはボス戦
         if (this.wave % 5 === 0) {
+            this.spawning = false;
             this.spawnBoss();
-            return;
+        } else {
+            const count = 2 + this.wave; // ウェーブが進むほど増える
+            this.spawning = true;
+            let spawned = 0;
+            for (let i = 0; i < count; i++) {
+                window.setTimeout(() => {
+                    if (this.running && this.mode === 'wave') {
+                        this.spawnOne();
+                        spawned += 1;
+                        if (spawned >= count) this.spawning = false;
+                    }
+                }, i * 300);
+            }
         }
-        const count = 2 + this.wave; // ウェーブが進むほど増える
-        for (let i = 0; i < count; i++) {
-            // 少しずつ時間差で出す
-            window.setTimeout(() => {
-                if (this.running && this.mode === 'wave') this.spawnOne();
-            }, i * 250);
-        }
+
+        // 安全策: 制限時間を過ぎたら残党がいても次のウェーブへ
+        this.waveTimeout = window.setTimeout(() => {
+            if (this.running && this.mode === 'wave') this.nextWave();
+        }, GameModeManager.WAVE_TIME_LIMIT);
     }
 
     private spawnBoss() {
@@ -157,14 +173,23 @@ export class GameModeManager {
 
     private onWaveTargetCleared() {
         if (this.mode !== 'wave' || !this.running) return;
-        if (this.aliveCount <= 0) {
-            // 次のウェーブへ
-            this.wave += 1;
-            this.updateStatus();
-            window.setTimeout(() => {
-                if (this.running && this.mode === 'wave') this.spawnWaveTargets();
-            }, 800);
+        // まだ湧かせ途中なら待つ。全滅したら次へ。
+        if (!this.spawning && this.aliveCount <= 0) {
+            this.nextWave();
         }
+    }
+
+    // 次のウェーブへ進む（残党と弾は掃除する）
+    private nextWave() {
+        if (this.mode !== 'wave' || !this.running) return;
+        if (this.waveTimeout !== null) { clearTimeout(this.waveTimeout); this.waveTimeout = null; }
+        this.wave += 1;
+        this.gameManager.clearAllObjects(); // 取り逃した的・破片を一掃
+        this.aliveCount = 0;
+        this.updateStatus();
+        window.setTimeout(() => {
+            if (this.running && this.mode === 'wave') this.spawnWaveTargets();
+        }, 900);
     }
 
     // === 共通 ===
@@ -201,6 +226,8 @@ export class GameModeManager {
     private clearTimers() {
         if (this.tickTimer !== null) { clearInterval(this.tickTimer); this.tickTimer = null; }
         if (this.spawnTimer !== null) { clearInterval(this.spawnTimer); this.spawnTimer = null; }
+        if (this.waveTimeout !== null) { clearTimeout(this.waveTimeout); this.waveTimeout = null; }
+        this.spawning = false;
     }
 
     // 走行終了＋リザルト表示
