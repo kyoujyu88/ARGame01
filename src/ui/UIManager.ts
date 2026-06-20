@@ -51,6 +51,8 @@ export class UIManager {
 
                 <div id="mode-status"></div>
 
+                <div id="start-hint">📱 下の「START AR」でカメラを起動<br>床を映して緑のマークが出たら<br>「配置」で的を置いて「発射」！</div>
+
                 <div id="combo-display"></div>
 
                 <div id="scan-overlay">
@@ -76,8 +78,8 @@ export class UIManager {
                     <!-- WebXRのボタンはThree.jsのARButtonを利用するかカスタムで作成 -->
                     <div id="ar-button-container"></div>
                     <div id="action-buttons">
-                        <button id="spawn-target-btn" class="hud-button action-btn" style="display:none;">🎯 配置</button>
-                        <button id="shoot-btn" class="hud-button action-btn" style="display:none;">🔫 発射</button>
+                        <button id="spawn-target-btn" class="hud-button action-btn">🎯 配置</button>
+                        <button id="shoot-btn" class="hud-button action-btn">🔫 発射</button>
                     </div>
                 </div>
 

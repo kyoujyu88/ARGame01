@@ -53,17 +53,28 @@ export class XRManager {
             if (crosshair) crosshair.style.display = 'block';
             const shootHint = document.getElementById('shoot-hint');
             if (shootHint) shootHint.style.display = 'block';
+
+            // 配置・発射ボタンと弾薬表示はAR中のみ表示する
+            const actionButtons = document.getElementById('action-buttons');
+            if (actionButtons) actionButtons.style.display = 'flex';
+            const ammo = document.getElementById('ammo-display');
+            if (ammo) ammo.style.display = 'block';
+            // 開始前の案内は隠す
+            const startHint = document.getElementById('start-hint');
+            if (startHint) startHint.style.display = 'none';
         });
 
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'none';
 
-            // セッション終了時はゲーム用のUIボタンを隠す
-            const spawnBtn = document.getElementById('spawn-target-btn');
-            const shootBtn = document.getElementById('shoot-btn');
-            if (spawnBtn) spawnBtn.style.display = 'none';
-            if (shootBtn) shootBtn.style.display = 'none';
+            // セッション終了時はゲーム用のUIを隠す
+            const actionButtons = document.getElementById('action-buttons');
+            if (actionButtons) actionButtons.style.display = 'none';
+            const ammo = document.getElementById('ammo-display');
+            if (ammo) ammo.style.display = 'none';
+            const startHint = document.getElementById('start-hint');
+            if (startHint) startHint.style.display = 'block';
 
             // レティクル（平面マーカー・中央照準）も隠す
             if (this.reticle) this.reticle.visible = false;

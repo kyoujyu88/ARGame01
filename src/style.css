@@ -58,21 +58,27 @@ canvas {
 /* ゲームモード選択バー */
 #mode-bar {
   position: absolute;
-  top: 64px;
+  top: 70px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   gap: 8px;
+  padding: 0 12px;
+  box-sizing: border-box;
+  width: 100%;
+  justify-content: center;
   pointer-events: auto;
   z-index: 60;
 }
 .mode-btn {
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   color: #ddd;
-  padding: 7px 12px;
-  border-radius: 18px;
+  padding: 8px 14px;
+  border-radius: 20px;
   font-size: 13px;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
 }
 .mode-btn.active {
@@ -80,6 +86,20 @@ canvas {
   color: #003;
   border-color: #00ffff;
   font-weight: bold;
+}
+
+/* 開始前の案内 */
+#start-hint {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 15px;
+  line-height: 2;
+  pointer-events: none;
+  z-index: 55;
 }
 
 /* モード中ステータス（残り時間・Wave） */
@@ -129,8 +149,9 @@ canvas {
   max-width: 80%;
 }
 
-/* 弾薬表示 */
+/* 弾薬表示（AR中のみ表示） */
 #ammo-display {
+  display: none;
   color: #fff;
   font-size: 18px;
   font-weight: bold;
@@ -221,9 +242,9 @@ canvas {
   transform: scale(0.96);
 }
 
-/* 配置・発射の操作ボタンを横並び＆親指で押しやすい大きさに */
+/* 配置・発射の操作ボタンを横並び＆親指で押しやすい大きさに。AR中のみ表示 */
 #action-buttons {
-  display: flex;
+  display: none;
   gap: 16px;
   justify-content: center;
   width: 100%;
