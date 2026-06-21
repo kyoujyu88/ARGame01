@@ -44,7 +44,21 @@ export class GameSystem {
             onEquip: (id, kind) => this.equip(id, kind),
             onUpgrade: (id) => this.upgradeWeapon(id),
         });
+        this.uiManager.onReset = () => this.resetProgress();
         this.refreshShopUI();
+    }
+
+    // すべての進行データ（ポイント・購入・強化・装備・ベスト記録）を初期化する
+    public resetProgress() {
+        try {
+            localStorage.removeItem(STORAGE_KEY);
+            localStorage.removeItem('argame01_best_time');
+            localStorage.removeItem('argame01_best_wave');
+        } catch (e) {
+            console.warn('リセットに失敗しました', e);
+        }
+        // 確実に初期状態へ戻すためリロードする
+        location.reload();
     }
 
     // === 武器強化 ===

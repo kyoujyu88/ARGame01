@@ -24,6 +24,9 @@ export class UIManager {
     // モード選択時に呼ばれる（GameModeManager が設定する）
     public onSelectMode?: (mode: GameMode) => void;
 
+    // 初期化ボタンが押されたときに呼ばれる（GameSystem が設定する）
+    public onReset?: () => void;
+
     constructor(sound: SoundManager) {
         this.sound = sound;
         this.initUI();
@@ -91,7 +94,8 @@ export class UIManager {
                     <div id="shop-weapons"></div>
                     <div class="shop-section-title">破壊対象 (Targets)</div>
                     <div id="shop-targets"></div>
-                    <button id="close-shop-btn" class="hud-button" style="margin-top:12px; width:100%;">Close</button>
+                    <button id="reset-btn" class="hud-button" style="margin-top:12px;width:100%;background:rgba(200,40,40,0.35);border-color:#ff7a7a;">⚠ 初期状態に戻す</button>
+                    <button id="close-shop-btn" class="hud-button" style="margin-top:8px; width:100%;">Close</button>
                 </div>
             </div>
         `;
@@ -117,6 +121,13 @@ export class UIManager {
 
         document.getElementById('shop-btn')?.addEventListener('click', openShop);
         document.getElementById('close-shop-btn')?.addEventListener('click', closeShop);
+
+        // 初期化（確認のうえ全データをリセット）
+        document.getElementById('reset-btn')?.addEventListener('click', () => {
+            if (confirm('ポイント・購入アイテム・武器強化・ベスト記録をすべて初期状態に戻します。よろしいですか？')) {
+                this.onReset?.();
+            }
+        });
         // 背景（バックドロップ）タップでも閉じる。裏のボタンへのタップ貫通も防ぐ
         backdrop?.addEventListener('click', closeShop);
 
