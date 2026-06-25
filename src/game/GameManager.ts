@@ -5,7 +5,7 @@ import { PhysicsManager } from '../physics/PhysicsManager';
 type ObjectKind = 'projectile' | 'target' | 'fragment';
 
 interface PhysicsEntry {
-    mesh: THREE.Mesh;
+    mesh: THREE.Object3D;
     body: CANNON.Body;
     kind: ObjectKind;
 }
@@ -169,7 +169,7 @@ export class GameManager {
     }
 
     // 外部からオブジェクトを追加するインターフェース
-    public addPhysicsObject(mesh: THREE.Mesh, body: CANNON.Body, kind: ObjectKind = 'target') {
+    public addPhysicsObject(mesh: THREE.Object3D, body: CANNON.Body, kind: ObjectKind = 'target') {
         // 衝突判定で「弾が当たったか」を区別できるよう、ボディに種別を付与する
         (body as any).__kind = kind;
         this.scene.add(mesh);
