@@ -140,6 +140,9 @@ export class InteractionManager {
             position: new CANNON.Vec3(position.x, position.y + centerOffsetY, position.z),
         });
         body.addShape(shape);
+        // 回転・滑りが止まらないのを防ぐ減衰（特に球体が転がり続ける対策）
+        body.angularDamping = def.boxCollision ? 0.6 : 0.4;
+        body.linearDamping = 0.05;
 
         // 破壊時コールバックをボディに紐づける（breakTarget から呼ぶ）
         if (onDestroyed) (body as any).__onDestroyed = onDestroyed;
@@ -179,7 +182,16 @@ export class InteractionManager {
                 const scale = targetSize / maxDim;
                 model.scale.setScalar(scale);
                 model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
-                model.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+                let fragMat: THREE.Material | null = null;
+                model.traverse((o) => {
+                    const m = o as THREE.Mesh;
+                    m.castShadow = true;
+                    // 破片にモデルの素材を使うため、最初に見つかったメッシュ素材を控える
+                    if (!fragMat && m.isMesh && m.material) {
+                        fragMat = Array.isArray(m.material) ? m.material[0] : m.material;
+                    }
+                });
+                if (fragMat) (body as any).__fragMaterial = fragMat;
                 mesh.add(model);
                 (mesh.material as THREE.Material).visible = false; // 物理用の素体は隠す
             }).catch(() => { /* 失敗時はプリミティブのまま */ });
@@ -238,9 +250,10 @@ export class InteractionManager {
             this.sound.break();
         }
 
-        // 本体を消去して破片に置き換える
+        // 本体を消去して破片に置き換える（モデルの素材があれば破片にも使う）
+        const fragMaterial = (body as any).__fragMaterial as THREE.Material | undefined;
         this.gameManager.removeBody(body);
-        this.spawnFragments(def, center);
+        this.spawnFragments(def, center, fragMaterial);
 
         // コンボ倍率つきで加点し、獲得スコアをポップアップ表示
         const result = this.gameSystem.registerKill(def.points);
@@ -351,9 +364,10 @@ export class InteractionManager {
     }
 
     // 破壊時の破片（小さな立方体）を飛び散らせる
-    private spawnFragments(def: TargetDef, center: CANNON.Vec3) {
-        // 破片は元オブジェクトと同じ素材を使い、見た目（色・テクスチャ・透明度）を保つ
-        const baseMaterial = this.makeTargetMaterial(def);
+    private spawnFragments(def: TargetDef, center: CANNON.Vec3, overrideMaterial?: THREE.Material) {
+        // 破片は元オブジェクトと同じ素材を使い、見た目（色・テクスチャ・透明度）を保つ。
+        // GLTFモデルの素材があればそれを使い、ビューワーで見た見た目に近づける。
+        const baseMaterial = overrideMaterial ?? this.makeTargetMaterial(def);
         const count = def.glass ? 14 : 9;
         const fragSize = Math.max(0.025, def.size / (def.glass ? 4 : 3));
 
@@ -437,7 +451,10 @@ export class InteractionManager {
             }
             case 'sphere': {
                 geometry = new THREE.SphereGeometry(def.size, 20, 20);
-                shape = new CANNON.Sphere(def.size);
+                // 岩など boxCollision 指定のものは転がり続けないよう箱の当たり判定にする
+                shape = def.boxCollision
+                    ? new CANNON.Box(new CANNON.Vec3(def.size * 0.8, def.size * 0.8, def.size * 0.8))
+                    : new CANNON.Sphere(def.size);
                 centerOffsetY = def.size;
                 break;
             }

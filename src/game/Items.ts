@@ -69,6 +69,8 @@ export interface TargetDef {
     motion: TargetMotion;
     /** ガラスのように半透明＆破片が三角片になる */
     glass?: boolean;
+    /** 球でもボックスの当たり判定にする（岩などが転がり続けるのを防ぐ） */
+    boxCollision?: boolean;
     /** 外部3Dモデル(GLTF)のパス。あれば優先して使う */
     modelUrl?: string;
 }
@@ -186,7 +188,7 @@ export const TARGETS: TargetDef[] = [
         shape: 'sphere', color: 0x8a8276, emissive: 0x000000,
         size: 0.16, height: 0, mass: 5, health: 5, points: 45,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/rock.glb',
+        boxCollision: true, modelUrl: '/ARGame01/models/rock.glb',
     },
     {
         id: 'boss', name: 'ボス [SF]', cost: 2000,
