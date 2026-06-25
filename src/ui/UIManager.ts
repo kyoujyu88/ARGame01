@@ -94,8 +94,19 @@ export class UIManager {
                     <div id="shop-weapons"></div>
                     <div class="shop-section-title">破壊対象 (Targets)</div>
                     <div id="shop-targets"></div>
-                    <button id="reset-btn" class="hud-button" style="margin-top:12px;width:100%;background:rgba(200,40,40,0.35);border-color:#ff7a7a;">⚠ 初期状態に戻す</button>
-                    <button id="close-shop-btn" class="hud-button" style="margin-top:8px; width:100%;">Close</button>
+                    <button id="close-shop-btn" class="hud-button" style="margin-top:12px; width:100%;">Close</button>
+                    <button id="reset-btn">初期化</button>
+
+                    <!-- 初期化の確認ダイアログ -->
+                    <div id="reset-confirm">
+                        <div id="reset-confirm-panel">
+                            <div>本当に初期化しますか？<br><span style="font-size:13px;color:#ffb3b3;">ポイント・購入・強化・ベスト記録がすべて消えます。</span></div>
+                            <div class="reset-confirm-buttons">
+                                <button id="reset-cancel" class="hud-button">キャンセル</button>
+                                <button id="reset-yes" class="hud-button">リセットする</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         `;
@@ -122,11 +133,17 @@ export class UIManager {
         document.getElementById('shop-btn')?.addEventListener('click', openShop);
         document.getElementById('close-shop-btn')?.addEventListener('click', closeShop);
 
-        // 初期化（確認のうえ全データをリセット）
+        // 初期化（アプリ内の確認ダイアログ経由。キャンセル可）
+        const resetConfirm = document.getElementById('reset-confirm');
         document.getElementById('reset-btn')?.addEventListener('click', () => {
-            if (confirm('ポイント・購入アイテム・武器強化・ベスト記録をすべて初期状態に戻します。よろしいですか？')) {
-                this.onReset?.();
-            }
+            resetConfirm?.classList.add('active');
+        });
+        document.getElementById('reset-cancel')?.addEventListener('click', () => {
+            resetConfirm?.classList.remove('active');
+        });
+        document.getElementById('reset-yes')?.addEventListener('click', () => {
+            resetConfirm?.classList.remove('active');
+            this.onReset?.();
         });
         // 背景（バックドロップ）タップでも閉じる。裏のボタンへのタップ貫通も防ぐ
         backdrop?.addEventListener('click', closeShop);
