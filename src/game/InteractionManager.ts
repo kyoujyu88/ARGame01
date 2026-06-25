@@ -140,6 +140,9 @@ export class InteractionManager {
             position: new CANNON.Vec3(position.x, position.y + centerOffsetY, position.z),
         });
         body.addShape(shape);
+        // 回転・滑りが止まらないのを防ぐ減衰（特に球体が転がり続ける対策）
+        body.angularDamping = def.boxCollision ? 0.6 : 0.4;
+        body.linearDamping = 0.05;
 
         // 破壊時コールバックをボディに紐づける（breakTarget から呼ぶ）
         if (onDestroyed) (body as any).__onDestroyed = onDestroyed;
@@ -179,9 +182,26 @@ export class InteractionManager {
                 const scale = targetSize / maxDim;
                 model.scale.setScalar(scale);
                 model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
-                model.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+                let fragMat: THREE.Material | null = null;
+                model.traverse((o) => {
+                    const m = o as THREE.Mesh;
+                    m.castShadow = true;
+                    // 破片にモデルの素材を使うため、最初に見つかったメッシュ素材を控える
+                    if (!fragMat && m.isMesh && m.material) {
+                        fragMat = Array.isArray(m.material) ? m.material[0] : m.material;
+                    }
+                });
+                if (fragMat) (body as any).__fragMaterial = fragMat;
                 mesh.add(model);
                 (mesh.material as THREE.Material).visible = false; // 物理用の素体は隠す
+
+                // 破壊対応モデル（intact_mesh + shards）なら、本体だけ表示して
+                // 破片グループは隠しておき、破壊時にモデル内蔵の破片を飛ばす
+                const shardsGroup = model.getObjectByName('shards');
+                if (shardsGroup) {
+                    shardsGroup.visible = false;
+                    (body as any).__shardsGroup = shardsGroup;
+                }
             }).catch(() => { /* 失敗時はプリミティブのまま */ });
         }
 
@@ -238,9 +258,17 @@ export class InteractionManager {
             this.sound.break();
         }
 
-        // 本体を消去して破片に置き換える
-        this.gameManager.removeBody(body);
-        this.spawnFragments(def, center);
+        // 本体を消去して破片に置き換える。
+        // 破壊対応モデルなら「モデル内蔵の破片」を飛ばし、そうでなければコード生成の破片。
+        const shardsGroup = (body as any).__shardsGroup as THREE.Object3D | undefined;
+        const fragMaterial = (body as any).__fragMaterial as THREE.Material | undefined;
+        if (shardsGroup) {
+            this.spawnModelShards(shardsGroup, center);
+            this.gameManager.removeBody(body);
+        } else {
+            this.gameManager.removeBody(body);
+            this.spawnFragments(def, center, fragMaterial);
+        }
 
         // コンボ倍率つきで加点し、獲得スコアをポップアップ表示
         const result = this.gameSystem.registerKill(def.points);
@@ -351,9 +379,10 @@ export class InteractionManager {
     }
 
     // 破壊時の破片（小さな立方体）を飛び散らせる
-    private spawnFragments(def: TargetDef, center: CANNON.Vec3) {
-        // 破片は元オブジェクトと同じ素材を使い、見た目（色・テクスチャ・透明度）を保つ
-        const baseMaterial = this.makeTargetMaterial(def);
+    private spawnFragments(def: TargetDef, center: CANNON.Vec3, overrideMaterial?: THREE.Material) {
+        // 破片は元オブジェクトと同じ素材を使い、見た目（色・テクスチャ・透明度）を保つ。
+        // GLTFモデルの素材があればそれを使い、ビューワーで見た見た目に近づける。
+        const baseMaterial = overrideMaterial ?? this.makeTargetMaterial(def);
         const count = def.glass ? 14 : 9;
         const fragSize = Math.max(0.025, def.size / (def.glass ? 4 : 3));
 
@@ -397,6 +426,67 @@ export class InteractionManager {
         }
     }
 
+    // 破壊対応モデルに含まれる破片(shards)を、それぞれ物理ボディ付きで飛び散らせる。
+    // 本体メッシュが破棄される前に scene へ移し替えて生かす。
+    private spawnModelShards(shardsGroup: THREE.Object3D, center: CANNON.Vec3) {
+        const shards = [...shardsGroup.children];
+        for (const shard of shards) {
+            shard.updateWorldMatrix(true, false);
+            const wp = new THREE.Vector3();
+            const wq = new THREE.Quaternion();
+            const ws = new THREE.Vector3();
+            shard.matrixWorld.decompose(wp, wq, ws);
+
+            // world変換を保ったまま scene 直下へ移動（本体破棄に巻き込まれないように）
+            this.gameManager.scene.attach(shard);
+            shard.visible = true;
+            // マテリアルは破片間で共有されている場合があるため複製し、破棄時の巻き込みを防ぐ
+            shard.traverse((o) => {
+                const m = o as THREE.Mesh;
+                m.castShadow = true;
+                if (m.isMesh && m.material) {
+                    m.material = Array.isArray(m.material)
+                        ? m.material.map((x) => x.clone())
+                        : m.material.clone();
+                }
+            });
+
+            // 破片のサイズからボックス当たり判定を作る
+            const box = new THREE.Box3().setFromObject(shard);
+            const sz = box.getSize(new THREE.Vector3());
+            const body = new CANNON.Body({
+                mass: 0.2,
+                material: this.physicsMaterial,
+                position: new CANNON.Vec3(wp.x, wp.y, wp.z),
+            });
+            body.addShape(new CANNON.Box(new CANNON.Vec3(
+                Math.max(0.01, sz.x / 2),
+                Math.max(0.01, sz.y / 2),
+                Math.max(0.01, sz.z / 2),
+            )));
+            body.quaternion.set(wq.x, wq.y, wq.z, wq.w);
+            body.angularDamping = 0.3;
+
+            // 中心から外側＋上方向へ飛ばす
+            const dx = wp.x - center.x;
+            const dz = wp.z - center.z;
+            const d = Math.hypot(dx, dz) || 1;
+            body.velocity.set(
+                (dx / d) * (1.5 + Math.random() * 2.5),
+                1.5 + Math.random() * 2.5,
+                (dz / d) * (1.5 + Math.random() * 2.5),
+            );
+            body.angularVelocity.set(
+                (Math.random() - 0.5) * 9,
+                (Math.random() - 0.5) * 9,
+                (Math.random() - 0.5) * 9,
+            );
+
+            this.gameManager.addPhysicsObject(shard, body, 'fragment');
+            setTimeout(() => this.gameManager.removeBody(body), 6000);
+        }
+    }
+
     // 破片の形状を元オブジェクトの種類に合わせて生成する（“らしく”壊す）
     private makeFragmentGeometry(def: TargetDef, s: number): THREE.BufferGeometry {
         if (def.glass || def.shape === 'panel') {
@@ -437,7 +527,10 @@ export class InteractionManager {
             }
             case 'sphere': {
                 geometry = new THREE.SphereGeometry(def.size, 20, 20);
-                shape = new CANNON.Sphere(def.size);
+                // 岩など boxCollision 指定のものは転がり続けないよう箱の当たり判定にする
+                shape = def.boxCollision
+                    ? new CANNON.Box(new CANNON.Vec3(def.size * 0.8, def.size * 0.8, def.size * 0.8))
+                    : new CANNON.Sphere(def.size);
                 centerOffsetY = def.size;
                 break;
             }
