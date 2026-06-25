@@ -169,7 +169,16 @@ export class InteractionManager {
         // 外部3Dモデル(GLTF)が指定されていれば読み込んで差し替える（無ければプリミティブのまま）
         if (def.modelUrl) {
             this.modelLoader.load(def.modelUrl).then((model) => {
-                model.scale.setScalar(def.size * 2);
+                // モデルごとにスケール・原点がバラバラなので、バウンディングボックスから
+                // 自動でフィットさせる（最大寸法を物体サイズに合わせ、中心を原点へ）
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const center = box.getCenter(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z) || 1;
+                const targetSize = (def.shape === 'panel' ? def.height : def.size * 2);
+                const scale = targetSize / maxDim;
+                model.scale.setScalar(scale);
+                model.position.set(-center.x * scale, -center.y * scale, -center.z * scale);
                 model.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
                 mesh.add(model);
                 (mesh.material as THREE.Material).visible = false; // 物理用の素体は隠す
