@@ -130,6 +130,7 @@ export const TARGETS: TargetDef[] = [
         shape: 'cylinder', color: 0xff3333, emissive: 0x330000,
         size: 0.15, height: 0.4, mass: 2, health: 2, points: 30,
         explosive: true, explosionRadius: 1.5, explosionForce: 18, motion: 'none',
+        modelUrl: '/ARGame01/models/barrel.glb',
     },
     {
         id: 'can', name: 'スチール缶', cost: 80,
@@ -178,6 +179,14 @@ export const TARGETS: TargetDef[] = [
         shape: 'panel', color: 0x99ddee, emissive: 0x000000,
         size: 0.28, height: 0.34, mass: 1, health: 1, points: 20,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none', glass: true,
+        modelUrl: '/ARGame01/models/glass.glb',
+    },
+    {
+        id: 'rock', name: '岩', cost: 100,
+        shape: 'sphere', color: 0x8a8276, emissive: 0x000000,
+        size: 0.16, height: 0, mass: 5, health: 5, points: 45,
+        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
+        modelUrl: '/ARGame01/models/rock.glb',
     },
     {
         id: 'boss', name: 'ボス [SF]', cost: 2000,
