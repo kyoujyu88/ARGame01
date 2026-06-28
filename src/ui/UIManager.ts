@@ -41,6 +41,7 @@ export class UIManager {
                 <div id="top-panel">
                     <div id="score-display">Points: 0</div>
                     <div class="top-right">
+                        <button id="help-btn" class="hud-button icon-btn">?</button>
                         <button id="sound-btn" class="hud-button icon-btn">🔊</button>
                         <button id="shop-btn" class="hud-button">Shop</button>
                     </div>
@@ -54,7 +55,14 @@ export class UIManager {
 
                 <div id="mode-status"></div>
 
-                <div id="start-hint">📱 下の「START AR」でカメラを起動<br>床を映して緑のマークが出たら<br>「配置」で的を置いて「発射」！</div>
+                <div id="start-hint">
+                    <p class="hint-title">遊び方</p>
+                    <p class="hint-step"><span>①</span> 下の「START AR」でカメラを起動</p>
+                    <p class="hint-step"><span>②</span> 床や机を映す（緑の輪が出ればOK）</p>
+                    <p class="hint-step"><span>③</span>「配置」で的を置く</p>
+                    <p class="hint-step"><span>④</span> 画面タップ／「発射」で撃つ！</p>
+                    <p class="hint-foot">右上の「?」でいつでも遊び方を確認できます</p>
+                </div>
 
                 <div id="combo-display"></div>
 
@@ -66,6 +74,39 @@ export class UIManager {
                 <div id="crosshair"></div>
 
                 <p id="shoot-hint">画面をタップで発射 🔫</p>
+
+                <div id="help-overlay">
+                    <div id="help-panel">
+                        <h2 style="margin-top:0;">遊び方 / ヘルプ</h2>
+                        <h3>はじめかた</h3>
+                        <ol>
+                            <li>下の「START AR」でカメラを起動します。</li>
+                            <li>床や机を映すと、平面に<b>緑の輪</b>が表示されます。</li>
+                            <li>「🎯 配置」で的を置きます。</li>
+                            <li><b>画面をタップ</b>、または「🔫 発射」で弾を撃ちます。</li>
+                            <li>的を壊すと<b>ポイント</b>を獲得（硬い的ほど高得点）。</li>
+                        </ol>
+                        <h3>モード</h3>
+                        <ul>
+                            <li><b>フリー</b>：自由に配置して撃つ練習モード。</li>
+                            <li><b>タイムアタック</b>：60秒で自動出現する的を壊してスコアを競う。</li>
+                            <li><b>ウェーブ</b>：倒すと次の波へ。5の倍数でボス出現。</li>
+                            <li>※タイム/ウェーブは床を映してから選んでください。</li>
+                        </ul>
+                        <h3>ショップ（右上 Shop）</h3>
+                        <ul>
+                            <li>ポイントで<b>武器・的を購入</b>、武器は<b>強化</b>も可能。</li>
+                            <li>最下部の「初期化」で進行データをリセット（確認あり）。</li>
+                        </ul>
+                        <h3>コツ</h3>
+                        <ul>
+                            <li>連続で壊すと<b>コンボ</b>でスコア倍率アップ。</li>
+                            <li>爆発する的（ドラム缶等）は周囲を巻き込みます。</li>
+                            <li>音は右上の🔊でON/OFF。</li>
+                        </ul>
+                        <button id="help-close" class="hud-button" style="margin-top:14px;width:100%;">閉じる</button>
+                    </div>
+                </div>
 
                 <div id="result-overlay">
                     <div id="result-panel">
@@ -158,6 +199,21 @@ export class UIManager {
             this.sound.toggleMuted();
             renderSoundIcon();
         });
+
+        // ヘルプ（遊び方）。初回は自動表示、以降は「?」ボタンで開く
+        const helpOverlay = document.getElementById('help-overlay');
+        document.getElementById('help-btn')?.addEventListener('click', () => {
+            helpOverlay?.classList.add('active');
+        });
+        document.getElementById('help-close')?.addEventListener('click', () => {
+            helpOverlay?.classList.remove('active');
+        });
+        try {
+            if (!localStorage.getItem('argame01_help_seen')) {
+                helpOverlay?.classList.add('active');
+                localStorage.setItem('argame01_help_seen', '1');
+            }
+        } catch { /* noop */ }
 
         // ゲームモード選択
         document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
