@@ -11,18 +11,33 @@ export class ModelLoader {
 
     load(url: string): Promise<THREE.Group> {
         const cached = this.cache.get(url);
-        if (cached) return Promise.resolve(cached.clone());
+        if (cached) return Promise.resolve(this.cloneModel(cached));
 
         return new Promise((resolve, reject) => {
             this.loader.load(
                 url,
                 (gltf) => {
                     this.cache.set(url, gltf.scene);
-                    resolve(gltf.scene.clone());
+                    resolve(this.cloneModel(gltf.scene));
                 },
                 undefined,
                 (err) => reject(err),
             );
         });
+    }
+
+    // Three.js の clone() はジオメトリ・マテリアルを共有するため、
+    // 破壊時に一体分のマテリアルを dispose すると他の同型モデルまで壊れて見える。
+    // 各配置インスタンスで安全に破棄できるよう、マテリアルだけは必ず複製する。
+    private cloneModel(source: THREE.Group): THREE.Group {
+        const clone = source.clone(true);
+        clone.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (!mesh.isMesh || !mesh.material) return;
+            mesh.material = Array.isArray(mesh.material)
+                ? mesh.material.map((mat) => mat.clone())
+                : mesh.material.clone();
+        });
+        return clone;
     }
 }

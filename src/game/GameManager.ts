@@ -217,6 +217,11 @@ export class GameManager {
         if (entry) this.removeEntry(entry);
     }
 
+    // 非同期モデル読込完了時などに、対象がまだゲーム内に存在するか確認する
+    public hasBody(body: CANNON.Body): boolean {
+        return this.physicsObjects.some((o) => o.body === body);
+    }
+
     // 爆発：中心から半径内の全ボディに放射状の衝撃を与える
     public applyExplosion(center: CANNON.Vec3, radius: number, force: number) {
         for (const obj of this.physicsObjects) {
@@ -237,6 +242,14 @@ export class GameManager {
             );
             obj.body.applyImpulse(impulse, obj.body.position);
         }
+    }
+
+    // 指定範囲内の物理ボディを取得する（爆風ダメージなどのゲームロジック用）
+    public getBodiesInRadius(center: CANNON.Vec3, radius: number, kind?: ObjectKind): CANNON.Body[] {
+        return this.physicsObjects
+            .filter((obj) => !kind || obj.kind === kind)
+            .filter((obj) => obj.body.position.distanceTo(center) <= radius)
+            .map((obj) => obj.body);
     }
 
     // 現在のカメラのワールド姿勢を取得する。
