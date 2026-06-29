@@ -208,9 +208,32 @@ export class InteractionManager {
         // HPバー（耐久2以上の標的に表示。被弾で減る）
         const hpBar = def.health > 1 ? this.createHpBar(mesh, centerOffsetY) : null;
 
-        // 弾を当てるたびに耐久を削り、0 になったら破片に砕く
+        // 弾・爆風で耐久を削り、0 になったら破片に砕く
         let health = def.health;
         let broken = false;
+        const applyDamage = (damage: number, showHitFeedback = true) => {
+            if (broken) return;
+
+            health -= damage;
+            if (health <= 0) {
+                broken = true;
+                // 衝突コールバック中に world を変更すると不安定なので次のタスクで実行する
+                setTimeout(() => this.breakTarget(def, body), 0);
+                if (showHitFeedback) this.uiManager.hitMarker();
+            } else if (showHitFeedback) {
+                // まだ壊れていないヒット：効果音とスパーク、軽い点滅、命中マーカー、HPバー更新
+                this.sound.hit();
+                this.spawnHitSpark(body.position, def.color);
+                this.flashMesh(mesh);
+                this.uiManager.hitMarker();
+                if (hpBar) hpBar.set(health / def.health);
+            } else if (hpBar) {
+                hpBar.set(health / def.health);
+            }
+        };
+        // 爆風や連鎖爆発からもダメージを与えられるよう、ボディにフックを持たせる
+        (body as any).__takeDamage = applyDamage;
+
         body.addEventListener('collide', (e: any) => {
             if (broken) return;
             // 弾が当たったときだけダメージ（落下や地面との接触では削れない）
@@ -221,20 +244,7 @@ export class InteractionManager {
 
             // 弾の威力（武器強化レベルで増える）だけ耐久を削る
             const damage = (other.__damage as number) ?? 1;
-            health -= damage;
-            if (health <= 0) {
-                broken = true;
-                // 衝突コールバック中に world を変更すると不安定なので次のタスクで実行する
-                setTimeout(() => this.breakTarget(def, body), 0);
-                this.uiManager.hitMarker();
-            } else {
-                // まだ壊れていないヒット：効果音とスパーク、軽い点滅、命中マーカー、HPバー更新
-                this.sound.hit();
-                this.spawnHitSpark(body.position, def.color);
-                this.flashMesh(mesh);
-                this.uiManager.hitMarker();
-                if (hpBar) hpBar.set(health / def.health);
-            }
+            applyDamage(damage);
         });
 
         this.gameManager.addPhysicsObject(mesh, body, 'target');
@@ -248,6 +258,7 @@ export class InteractionManager {
         // 爆発系は周囲を吹き飛ばす＋大きな爆発演出。ガラスは専用の割れ音
         if (def.explosive) {
             this.gameManager.applyExplosion(center, def.explosionRadius, def.explosionForce);
+            this.applyExplosionDamage(center, def.explosionRadius, Math.max(2, Math.ceil(def.health / 2)), body);
             this.spawnExplosionFlash(pos, def.explosionRadius, 0xffaa33);
             this.sound.explosion();
         } else if (def.glass) {
@@ -362,6 +373,21 @@ export class InteractionManager {
             obj.scale.setScalar(0.3 + t * 1.4);
             (((obj as THREE.Mesh).material) as THREE.MeshBasicMaterial).opacity = 0.9 * (1 - t);
         });
+    }
+
+    // 爆風範囲内の標的にもダメージを与え、ドラム缶などの連鎖爆発を起こせるようにする
+    private applyExplosionDamage(center: CANNON.Vec3, radius: number, maxDamage: number, source?: CANNON.Body) {
+        for (const body of this.gameManager.getBodiesInRadius(center, radius, 'target')) {
+            if (body === source) continue;
+            const takeDamage = (body as any).__takeDamage as ((damage: number, showHitFeedback?: boolean) => void) | undefined;
+            if (!takeDamage) continue;
+
+            const dist = body.position.distanceTo(center);
+            const falloff = Math.max(0, 1 - dist / radius);
+            const damage = Math.max(1, Math.ceil(maxDamage * falloff));
+            takeDamage(damage, false);
+            this.spawnHitSpark(body.position, 0xffaa33);
+        }
     }
 
     // ヒット時に一瞬だけ発光させる
@@ -880,12 +906,14 @@ export class InteractionManager {
                 if (exploded) return;
                 exploded = true;
                 this.gameManager.applyExplosion(body.position, def.explosionRadius, def.explosionForce);
+                this.applyExplosionDamage(body.position, def.explosionRadius, this.gameSystem.getWeaponDamage(def.id) + 2, body);
                 this.spawnExplosionFlash(
                     new THREE.Vector3(body.position.x, body.position.y, body.position.z),
                     def.explosionRadius,
                     0xffaa33,
                 );
                 this.sound.explosion();
+                setTimeout(() => this.gameManager.removeBody(body), 0);
             });
         }
 

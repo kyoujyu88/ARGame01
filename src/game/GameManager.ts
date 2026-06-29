@@ -239,6 +239,14 @@ export class GameManager {
         }
     }
 
+    // 指定範囲内の物理ボディを取得する（爆風ダメージなどのゲームロジック用）
+    public getBodiesInRadius(center: CANNON.Vec3, radius: number, kind?: ObjectKind): CANNON.Body[] {
+        return this.physicsObjects
+            .filter((obj) => !kind || obj.kind === kind)
+            .filter((obj) => obj.body.position.distanceTo(center) <= radius)
+            .map((obj) => obj.body);
+    }
+
     // 現在のカメラのワールド姿勢を取得する。
     // WebXR中は描画に使われる XR カメラ（renderer.xr.getCamera()）を参照する。
     // アプリ用 this.camera は XR 中に更新されず原点のままになるため、
