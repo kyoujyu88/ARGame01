@@ -756,24 +756,6 @@ export class InteractionManager {
                 led.position.set(Math.cos(a) * def.size * 0.85, -def.height * 0.2, Math.sin(a) * def.size * 0.85);
                 mesh.add(led);
             }
-        } else if (def.id === 'robot') {
-            // ロボット：頭・目・腕を付ける
-            const bodyMat = new THREE.MeshStandardMaterial({ color: 0x6a7888, metalness: 0.6, roughness: 0.4 });
-            const head = new THREE.Mesh(new THREE.BoxGeometry(def.size * 0.6, def.size * 0.5, def.size * 0.6), bodyMat);
-            head.position.y = def.size * 0.75;
-            mesh.add(head);
-            const eyeMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive: 0xff2222, emissiveIntensity: 1.4 });
-            for (const dx of [-0.15, 0.15]) {
-                const eye = new THREE.Mesh(new THREE.SphereGeometry(def.size * 0.06, 8, 8), eyeMat);
-                eye.position.set(def.size * dx, def.size * 0.78, def.size * 0.3);
-                mesh.add(eye);
-            }
-            const armGeo = new THREE.BoxGeometry(def.size * 0.18, def.size * 0.55, def.size * 0.18);
-            for (const dx of [-0.6, 0.6]) {
-                const arm = new THREE.Mesh(armGeo, bodyMat);
-                arm.position.set(def.size * dx, def.size * 0.05, 0);
-                mesh.add(arm);
-            }
         }
     }
 

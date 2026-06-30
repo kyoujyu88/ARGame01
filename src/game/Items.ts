@@ -171,12 +171,6 @@ export const TARGETS: TargetDef[] = [
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'spin',
     },
     {
-        id: 'robot', name: 'ロボット [SF]', cost: 420,
-        shape: 'box', color: 0x8a98aa, emissive: 0x113355,
-        size: 0.18, height: 0.18, mass: 1.2, health: 5, points: 110,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'strafe',
-    },
-    {
         id: 'glass', name: 'ガラス板', cost: 60,
         shape: 'panel', color: 0x99ddee, emissive: 0x000000,
         size: 0.28, height: 0.34, mass: 1, health: 1, points: 20,
@@ -191,39 +185,11 @@ export const TARGETS: TargetDef[] = [
         boxCollision: true, modelUrl: '/ARGame01/models/rock.glb',
     },
     {
-        id: 'crate', name: 'クレート', cost: 40,
-        shape: 'box', color: 0x6b441e, emissive: 0x000000,
-        size: 0.2, height: 0.2, mass: 1.2, health: 2, points: 15,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/crate.glb',
-    },
-    {
-        id: 'egg', name: 'タマゴ', cost: 30,
-        shape: 'sphere', color: 0xede0cc, emissive: 0x000000,
-        size: 0.1, height: 0, mass: 0.3, health: 1, points: 10,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        boxCollision: true, modelUrl: '/ARGame01/models/egg.glb',
-    },
-    {
-        id: 'pot', name: '植木鉢', cost: 70,
-        shape: 'cylinder', color: 0xb25733, emissive: 0x000000,
-        size: 0.12, height: 0.22, mass: 0.8, health: 1, points: 18,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/pot.glb',
-    },
-    {
         id: 'pumpkin', name: 'カボチャ', cost: 90,
         shape: 'sphere', color: 0xd9661a, emissive: 0x000000,
         size: 0.14, height: 0, mass: 1.5, health: 2, points: 25,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
         boxCollision: true, modelUrl: '/ARGame01/models/pumpkin.glb',
-    },
-    {
-        id: 'vase', name: '花瓶', cost: 110,
-        shape: 'cylinder', color: 0x4d7399, emissive: 0x000000,
-        size: 0.1, height: 0.26, mass: 0.6, health: 1, points: 22,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/vase.glb',
     },
     {
         id: 'ice', name: '氷塊', cost: 130,
@@ -238,20 +204,6 @@ export const TARGETS: TargetDef[] = [
         size: 0.18, height: 0.18, mass: 3, health: 4, points: 40,
         explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
         modelUrl: '/ARGame01/models/concrete.glb',
-    },
-    {
-        id: 'tombstone', name: '墓石', cost: 300,
-        shape: 'box', color: 0x808085, emissive: 0x000000,
-        size: 0.18, height: 0.3, mass: 3.5, health: 4, points: 80,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/tombstone.glb',
-    },
-    {
-        id: 'pillar', name: '石柱', cost: 400,
-        shape: 'cylinder', color: 0xc7bfad, emissive: 0x000000,
-        size: 0.12, height: 0.5, mass: 4, health: 6, points: 120,
-        explosive: false, explosionRadius: 0, explosionForce: 0, motion: 'none',
-        modelUrl: '/ARGame01/models/pillar.glb',
     },
     {
         id: 'boss', name: 'ボス [SF]', cost: 2000,
