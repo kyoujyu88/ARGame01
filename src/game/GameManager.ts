@@ -217,6 +217,11 @@ export class GameManager {
         if (entry) this.removeEntry(entry);
     }
 
+    // 非同期モデル読込完了時などに、対象がまだゲーム内に存在するか確認する
+    public hasBody(body: CANNON.Body): boolean {
+        return this.physicsObjects.some((o) => o.body === body);
+    }
+
     // 爆発：中心から半径内の全ボディに放射状の衝撃を与える
     public applyExplosion(center: CANNON.Vec3, radius: number, force: number) {
         for (const obj of this.physicsObjects) {
