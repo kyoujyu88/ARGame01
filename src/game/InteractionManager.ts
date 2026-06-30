@@ -172,6 +172,12 @@ export class InteractionManager {
         // 外部3Dモデル(GLTF)が指定されていれば読み込んで差し替える（無ければプリミティブのまま）
         if (def.modelUrl) {
             this.modelLoader.load(def.modelUrl).then((model) => {
+                // 読込完了前に破壊・クリアされた場合は、消えた標的へ後からモデルを足さない
+                if (!this.gameManager.hasBody(body)) {
+                    this.disposeObject(model);
+                    return;
+                }
+
                 // モデルごとにスケール・原点がバラバラなので、バウンディングボックスから
                 // 自動でフィットさせる（最大寸法を物体サイズに合わせ、中心を原点へ）
                 const box = new THREE.Box3().setFromObject(model);
@@ -202,7 +208,13 @@ export class InteractionManager {
                     shardsGroup.visible = false;
                     (body as any).__shardsGroup = shardsGroup;
                 }
-            }).catch(() => { /* 失敗時はプリミティブのまま */ });
+            }).catch(() => {
+                // 読込失敗時だけ、非表示にしていたプリミティブをフォールバック表示する
+                if (!this.gameManager.hasBody(body)) return;
+                (mesh.material as THREE.Material).visible = true;
+                this.decorateTarget(mesh, def);
+                mesh.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
+            });
         }
 
         // HPバー（耐久2以上の標的に表示。被弾で減る）
@@ -388,6 +400,19 @@ export class InteractionManager {
             takeDamage(damage, false);
             this.spawnHitSpark(body.position, 0xffaa33);
         }
+    }
+
+    private disposeObject(object: THREE.Object3D) {
+        object.traverse((obj) => {
+            const mesh = obj as THREE.Mesh;
+            if (mesh.geometry) mesh.geometry.dispose();
+            const mat = mesh.material;
+            if (Array.isArray(mat)) {
+                mat.forEach((m) => m.dispose());
+            } else if (mat) {
+                mat.dispose();
+            }
+        });
     }
 
     // ヒット時に一瞬だけ発光させる
@@ -588,8 +613,14 @@ export class InteractionManager {
         const mesh = new THREE.Mesh(geometry, material);
         mesh.position.set(position.x, position.y + centerOffsetY, position.z);
 
-        // 種類ごとに装飾パーツを足して見た目に個性を出す
-        this.decorateTarget(mesh, def);
+        // 外部モデルを使う標的は、モデル読込前にプリミティブや装飾が一瞬見えないよう
+        // 物理用の素体を最初から非表示にする。読込失敗時だけ下でフォールバック表示する。
+        if (def.modelUrl) {
+            material.visible = false;
+        } else {
+            // 種類ごとに装飾パーツを足して見た目に個性を出す
+            this.decorateTarget(mesh, def);
+        }
 
         // 影を落とす（リッチな見た目）
         mesh.traverse((o) => { (o as THREE.Mesh).castShadow = true; });
@@ -902,11 +933,16 @@ export class InteractionManager {
         // 爆発系の武器は着弾時に周囲を吹き飛ばす＋爆発演出
         if (def.explosive) {
             let exploded = false;
-            body.addEventListener('collide', () => {
+            body.addEventListener('collide', (event: any) => {
                 if (exploded) return;
                 exploded = true;
                 this.gameManager.applyExplosion(body.position, def.explosionRadius, def.explosionForce);
-                this.applyExplosionDamage(body.position, def.explosionRadius, this.gameSystem.getWeaponDamage(def.id) + 2, body);
+                this.applyExplosionDamage(
+                    body.position,
+                    def.explosionRadius,
+                    this.gameSystem.getWeaponDamage(def.id) + 2,
+                    event.body,
+                );
                 this.spawnExplosionFlash(
                     new THREE.Vector3(body.position.x, body.position.y, body.position.z),
                     def.explosionRadius,
