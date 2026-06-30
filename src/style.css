@@ -58,7 +58,7 @@ canvas {
 /* ゲームモード選択バー */
 #mode-bar {
   position: absolute;
-  top: 70px;
+  top: calc(64px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -187,7 +187,7 @@ canvas {
 #mode-status {
   display: none;
   position: absolute;
-  top: 110px;
+  top: calc(108px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   background: rgba(0, 0, 0, 0.55);
@@ -282,7 +282,8 @@ canvas {
 
 /* 上部情報パネル */
 #top-panel {
-  padding: 20px;
+  /* ノッチ/ステータスバー（セーフエリア）にUIがかぶらないよう上に余白を足す */
+  padding: calc(12px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) 12px calc(16px + env(safe-area-inset-left));
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -298,7 +299,7 @@ canvas {
 
 /* 下部操作パネル */
 #bottom-panel {
-  padding: 20px;
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   align-items: center;
