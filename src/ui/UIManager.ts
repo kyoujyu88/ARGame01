@@ -42,6 +42,7 @@ export class UIManager {
                     <div id="score-display">Points: 0</div>
                     <div class="top-right">
                         <button id="help-btn" class="hud-button icon-btn">?</button>
+                        <button id="achv-btn" class="hud-button icon-btn">🏆</button>
                         <button id="sound-btn" class="hud-button icon-btn">🔊</button>
                         <button id="shop-btn" class="hud-button">Shop</button>
                     </div>
@@ -65,6 +66,12 @@ export class UIManager {
                 </div>
 
                 <div id="combo-display"></div>
+
+                <!-- 一時通知（実績解除・ボーナス獲得など） -->
+                <div id="toast-container"></div>
+
+                <!-- 画面中央の大きな告知（WAVE開始など） -->
+                <div id="center-banner"></div>
 
                 <div id="scan-overlay">
                     <div class="scan-icon"></div>
@@ -98,6 +105,11 @@ export class UIManager {
                             <li>ポイントで<b>武器・的を購入</b>、武器は<b>強化</b>も可能。</li>
                             <li>最下部の「初期化」で進行データをリセット（確認あり）。</li>
                         </ul>
+                        <h3>実績・ボーナス</h3>
+                        <ul>
+                            <li>右上の<b>🏆</b>で実績を確認。達成でポイント獲得。</li>
+                            <li>毎日遊ぶと<b>デイリーボーナス</b>（連続日数で増額）。</li>
+                        </ul>
                         <h3>コツ</h3>
                         <ul>
                             <li>連続で壊すと<b>コンボ</b>でスコア倍率アップ。</li>
@@ -105,6 +117,15 @@ export class UIManager {
                             <li>音は右上の🔊でON/OFF。</li>
                         </ul>
                         <button id="help-close" class="hud-button" style="margin-top:14px;width:100%;">閉じる</button>
+                    </div>
+                </div>
+
+                <div id="achv-overlay">
+                    <div id="achv-panel">
+                        <h2 style="margin-top:0;">🏆 実績</h2>
+                        <div id="achv-stats"></div>
+                        <div id="achv-list"></div>
+                        <button id="achv-close" class="hud-button" style="margin-top:14px;width:100%;">閉じる</button>
                     </div>
                 </div>
 
@@ -215,6 +236,15 @@ export class UIManager {
             }
         } catch { /* noop */ }
 
+        // 実績パネルの開閉
+        const achvOverlay = document.getElementById('achv-overlay');
+        document.getElementById('achv-btn')?.addEventListener('click', () => {
+            achvOverlay?.classList.add('active');
+        });
+        document.getElementById('achv-close')?.addEventListener('click', () => {
+            achvOverlay?.classList.remove('active');
+        });
+
         // ゲームモード選択
         document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
             btn.addEventListener('click', () => {
@@ -246,6 +276,65 @@ export class UIManager {
             el.style.display = 'block';
         } else {
             el.style.display = 'none';
+        }
+    }
+
+    // 画面上部に一時通知（実績解除・ボーナス獲得など）を表示する。複数は縦に積まれる
+    public showToast(text: string) {
+        const container = document.getElementById('toast-container');
+        if (!container) return;
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.innerText = text;
+        container.appendChild(toast);
+        this.sound.coin();
+        window.setTimeout(() => {
+            toast.classList.add('out');
+            window.setTimeout(() => toast.remove(), 400);
+        }, 2600);
+    }
+
+    // 画面中央の大きな告知（WAVE開始など）。アニメーションで自動的に消える
+    public showBanner(text: string) {
+        const el = document.getElementById('center-banner');
+        if (!el) return;
+        el.innerText = text;
+        el.classList.remove('show');
+        void el.offsetWidth; // reflow でアニメ再生
+        el.classList.add('show');
+    }
+
+    // 実績パネルの内容（累計統計＋実績一覧）を描き直す
+    public renderAchievements(
+        stats: { shots: number; hits: number; destroyed: number; maxCombo: number },
+        items: { icon: string; name: string; desc: string; reward: number; unlocked: boolean }[],
+    ) {
+        const statsEl = document.getElementById('achv-stats');
+        if (statsEl) {
+            const acc = stats.shots > 0 ? Math.min(100, Math.round((stats.hits / stats.shots) * 100)) : 0;
+            statsEl.innerHTML = `累計撃破 <b>${stats.destroyed}</b>体 ｜ 最大コンボ <b>x${stats.maxCombo}</b> ｜ 命中率 <b>${acc}%</b>`;
+        }
+        const list = document.getElementById('achv-list');
+        if (!list) return;
+        list.innerHTML = '';
+        for (const item of items) {
+            const row = document.createElement('div');
+            row.className = 'achv-item' + (item.unlocked ? ' unlocked' : '');
+
+            const icon = document.createElement('span');
+            icon.className = 'achv-icon';
+            icon.innerText = item.unlocked ? item.icon : '🔒';
+
+            const body = document.createElement('span');
+            body.className = 'achv-body';
+            body.innerHTML = `<b>${item.name}</b><br><small>${item.desc}</small>`;
+
+            const reward = document.createElement('span');
+            reward.className = 'achv-reward';
+            reward.innerText = item.unlocked ? '✅ 達成' : `+${item.reward}pt`;
+
+            row.append(icon, body, reward);
+            list.appendChild(row);
         }
     }
 
