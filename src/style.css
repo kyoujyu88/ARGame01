@@ -113,15 +113,15 @@ canvas {
   color: #00ffff;
 }
 #start-hint .hint-step {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
   font-size: 14px;
   line-height: 1.7;
   margin: 4px 0;
-  padding-left: 26px;
-  text-indent: -26px;
 }
 #start-hint .hint-step span {
-  display: inline-block;
-  width: 26px;
+  flex-shrink: 0;
   color: #00ffff;
   font-weight: bold;
 }
