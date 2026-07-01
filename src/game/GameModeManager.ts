@@ -6,6 +6,7 @@ import { InteractionManager } from './InteractionManager';
 import { UIManager } from '../ui/UIManager';
 import type { GameMode } from '../ui/UIManager';
 import { NORMAL_TARGETS, getTarget } from './Items';
+import { SoundManager } from '../audio/SoundManager';
 
 // フリー / タイムアタック / ウェーブ の3モードを管理する。
 // タイム・ウェーブでは検出した床の周辺に標的を自動で湧かせてスコアを競う。
@@ -15,6 +16,7 @@ export class GameModeManager {
     private gameSystem: GameSystem;
     private interaction: InteractionManager;
     private ui: UIManager;
+    private sound: SoundManager;
 
     private mode: GameMode = 'free';
     private running = false;
@@ -42,12 +44,14 @@ export class GameModeManager {
         gameSystem: GameSystem,
         interaction: InteractionManager,
         ui: UIManager,
+        sound: SoundManager,
     ) {
         this.gameManager = gameManager;
         this.xrManager = xrManager;
         this.gameSystem = gameSystem;
         this.interaction = interaction;
         this.ui = ui;
+        this.sound = sound;
 
         // モード選択をUIから受け取る
         this.ui.onSelectMode = (mode) => this.selectMode(mode);
@@ -91,9 +95,12 @@ export class GameModeManager {
         this.runScore = 0;
         this.aliveCount = 0;
         this.running = true;
+        this.gameSystem.startRun(); // リザルト用のラン統計をリセット
 
         if (mode === 'time') {
             this.timeLeft = GameModeManager.TIME_LIMIT;
+            this.ui.showBanner('⏱ GO!');
+            this.sound.waveStart();
             this.startTimeAttack();
         } else {
             this.wave = 1;
@@ -134,6 +141,10 @@ export class GameModeManager {
 
     private spawnWaveTargets() {
         if (this.waveTimeout !== null) { clearTimeout(this.waveTimeout); this.waveTimeout = null; }
+
+        // ウェーブ開始の告知（ボス戦は強調）
+        this.ui.showBanner(this.wave % 5 === 0 ? `⚠️ BOSS WAVE ${this.wave}` : `🌊 WAVE ${this.wave}`);
+        this.sound.waveStart();
 
         // 5の倍数のウェーブはボス戦
         if (this.wave % 5 === 0) {
@@ -184,6 +195,7 @@ export class GameModeManager {
         if (this.mode !== 'wave' || !this.running) return;
         if (this.waveTimeout !== null) { clearTimeout(this.waveTimeout); this.waveTimeout = null; }
         this.wave += 1;
+        this.gameSystem.reportWave(this.wave); // 到達ウェーブを実績判定に反映
         this.gameManager.clearAllObjects(); // 取り逃した的・破片を一掃
         this.aliveCount = 0;
         this.updateStatus();
@@ -242,19 +254,39 @@ export class GameModeManager {
         this.gameManager.clearAllObjects();
         this.aliveCount = 0;
 
+        // ラン統計（撃破数・最大コンボ・命中率）をリザルトに添える
+        const stats = this.gameSystem.getRunStats();
+        const accuracy = stats.shots > 0 ? Math.min(100, Math.round((stats.hits / stats.shots) * 100)) : 0;
+        const statsLine = `<div class="result-stats">撃破 ${stats.destroyed}体 ｜ 最大コンボ x${stats.maxCombo} ｜ 命中率 ${accuracy}%</div>`;
+
         let text = '';
         if (endedMode === 'time') {
-            const best = this.saveBest(GameModeManager.BEST_TIME_KEY, score);
-            text = `⏱ タイムアップ！<br>スコア: <b>${score}</b><br>ベスト: ${best}`;
+            this.gameSystem.reportTimeScore(score); // 実績判定に反映
+            const { best, isNew } = this.saveBest(GameModeManager.BEST_TIME_KEY, score);
+            const rank = this.getRank(score, [2000, 1200, 600]);
+            const record = isNew ? '<div class="new-record">🎉 NEW RECORD!</div>' : `ベスト: ${best}`;
+            text = `⏱ タイムアップ！<div class="result-rank rank-${rank}">RANK ${rank}</div>スコア: <b>${score}</b><br>${record}${statsLine}`;
+            if (isNew) this.sound.fanfare();
         } else if (endedMode === 'wave') {
-            const best = this.saveBest(GameModeManager.BEST_WAVE_KEY, wave);
-            text = `🌊 ゲーム終了<br>到達 Wave: <b>${wave}</b><br>スコア: ${score}<br>ベスト Wave: ${best}`;
+            const { best, isNew } = this.saveBest(GameModeManager.BEST_WAVE_KEY, wave);
+            const rank = this.getRank(wave, [10, 7, 4]);
+            const record = isNew ? '<div class="new-record">🎉 NEW RECORD!</div>' : `ベスト Wave: ${best}`;
+            text = `🌊 ゲーム終了<div class="result-rank rank-${rank}">RANK ${rank}</div>到達 Wave: <b>${wave}</b> ｜ スコア: ${score}<br>${record}${statsLine}`;
+            if (isNew) this.sound.fanfare();
         }
 
         this.mode = 'free';
         this.ui.setActiveMode('free');
         this.ui.updateModeStatus(null);
         if (text) this.ui.showResult(text);
+    }
+
+    // 成績のランク付け。thresholds は [S, A, B] の下限値
+    private getRank(value: number, thresholds: [number, number, number]): 'S' | 'A' | 'B' | 'C' {
+        if (value >= thresholds[0]) return 'S';
+        if (value >= thresholds[1]) return 'A';
+        if (value >= thresholds[2]) return 'B';
+        return 'C';
     }
 
     // リザルトを出さずに停止（AR終了時など）
@@ -267,10 +299,11 @@ export class GameModeManager {
         this.ui.updateModeStatus(null);
     }
 
-    private saveBest(key: string, value: number): number {
+    private saveBest(key: string, value: number): { best: number; isNew: boolean } {
         const prev = Number(localStorage.getItem(key) ?? '0');
+        const isNew = value > prev;
         const best = Math.max(prev, value);
         try { localStorage.setItem(key, String(best)); } catch { /* noop */ }
-        return best;
+        return { best, isNew };
     }
 }

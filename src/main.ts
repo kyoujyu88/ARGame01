@@ -36,6 +36,7 @@ class App {
             this.gameSystem,
             this.interactionManager,
             this.uiManager,
+            this.sound,
         );
 
         this.init();
