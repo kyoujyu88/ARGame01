@@ -8,10 +8,10 @@ export class XRManager {
     private hitTestSource: any = null;
     private hitTestSourceRequested = false;
 
-    // 検出した平面(XRPlane)ごとのワイヤーフレーム表示
-    private planeMeshes = new Map<any, { mesh: THREE.Mesh; lastChanged: number }>();
     // スキャン演出（小三角形）の発生間隔制御
     private lastScanFx = 0;
+    // 一度でも平面認識に成功したか（成功後は演出を出さない）
+    private hasRecognizedOnce = false;
 
     constructor(gameManager: GameManager) {
         this.gameManager = gameManager;
@@ -26,8 +26,7 @@ export class XRManager {
         // @ts-ignore : Types for sessionInit might be incomplete
         const arButton = ARButton.createButton(this.gameManager.renderer, {
             requiredFeatures: ['hit-test'],
-            // plane-detection: 対応端末では認識した平面ポリゴンを取得できる（ワイヤーフレーム表示用）
-            optionalFeatures: ['dom-overlay', 'plane-detection'],
+            optionalFeatures: ['dom-overlay'],
             domOverlay: { root: uiContainer ?? document.body }
         });
         
@@ -68,6 +67,9 @@ export class XRManager {
             // 開始前の案内は隠す
             const startHint = document.getElementById('start-hint');
             if (startHint) startHint.style.display = 'none';
+
+            // 新しいセッションではスキャン演出を再び出す
+            this.hasRecognizedOnce = false;
         });
 
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
@@ -91,14 +93,6 @@ export class XRManager {
 
             // 配置した標的や弾をすべて消去する（AR終了後に残り続ける問題の対策）
             this.gameManager.clearAllObjects();
-
-            // 平面ワイヤーフレームも破棄
-            for (const [, entry] of this.planeMeshes) {
-                this.gameManager.scene.remove(entry.mesh);
-                entry.mesh.geometry.dispose();
-                (entry.mesh.material as THREE.Material).dispose();
-            }
-            this.planeMeshes.clear();
 
             // dom-overlay のフルスクリーン解除後に UI コンテナが隠れたままになり、
             // ショップを閉じると黒画面で操作不能になる端末があるため、明示的に表示を復帰させる
@@ -176,12 +170,16 @@ export class XRManager {
                         this.reticle.visible = true;
                         this.reticle.matrix.fromArray(pose.transform.matrix);
 
-                        // 認識した場所にワイヤーフレームの小三角形を散らすスキャン演出
-                        this.spawnScanTriangles(new THREE.Vector3(
-                            pose.transform.position.x,
-                            pose.transform.position.y,
-                            pose.transform.position.z,
-                        ));
+                        // 認識完了までは、その場所にワイヤーフレームの小三角形を散らす。
+                        // 一度認識できたら以降は出さない（「ずっと表示され続ける」のを防ぐ）
+                        if (!this.hasRecognizedOnce) {
+                            this.spawnScanTriangles(new THREE.Vector3(
+                                pose.transform.position.x,
+                                pose.transform.position.y,
+                                pose.transform.position.z,
+                            ));
+                        }
+                        this.hasRecognizedOnce = true;
 
                         // 平面が認識されたらスキャンアニメーションを隠す
                         const scanOverlay = document.getElementById('scan-overlay');
@@ -191,22 +189,16 @@ export class XRManager {
                     this.reticle.visible = false;
                 }
             }
-
-            // 対応端末では認識済み平面をワイヤーフレーム表示する
-            this.updatePlaneWireframes(frame, referenceSpace);
         }
     }
 
-    // 認識箇所の周辺に、小さなワイヤーフレーム三角形をパラパラと発生させる（SF風スキャン演出）
+    // 認識完了までの間、ワイヤーフレーム三角形をパラパラと散らすスキャン演出
     private spawnScanTriangles(center: THREE.Vector3) {
-        // 初期スキャン中は高頻度、認識後は控えめに
-        const scanning = document.getElementById('scan-overlay')?.style.display !== 'none';
-        const interval = scanning ? 130 : 420;
         const now = performance.now();
-        if (now - this.lastScanFx < interval) return;
+        if (now - this.lastScanFx < 130) return;
         this.lastScanFx = now;
 
-        const count = scanning ? 2 : 1;
+        const count = 2;
         for (let i = 0; i < count; i++) {
             const size = 0.03 + Math.random() * 0.05;
             const base = Math.random() * Math.PI * 2;
@@ -236,70 +228,6 @@ export class XRManager {
                 obj.scale.setScalar(1 + t * 0.6);
             });
         }
-    }
-
-    // plane-detection が使える端末では、認識した平面ポリゴンを三角形分割して
-    // ワイヤーフレーム表示する（認識範囲がメッシュ状に見えてかっこいい）
-    private updatePlaneWireframes(frame: any, referenceSpace: any) {
-        const detected = frame.detectedPlanes as Set<any> | undefined;
-        if (!detected) return;
-
-        // 消えた平面のメッシュを破棄
-        for (const [plane, entry] of this.planeMeshes) {
-            if (!detected.has(plane)) {
-                this.gameManager.scene.remove(entry.mesh);
-                entry.mesh.geometry.dispose();
-                (entry.mesh.material as THREE.Material).dispose();
-                this.planeMeshes.delete(plane);
-            }
-        }
-
-        detected.forEach((plane: any) => {
-            const pose = frame.getPose(plane.planeSpace, referenceSpace);
-            if (!pose || !plane.polygon || plane.polygon.length < 3) return;
-
-            let entry = this.planeMeshes.get(plane);
-            const changed = plane.lastChangedTime ?? 0;
-            if (!entry) {
-                const material = new THREE.MeshBasicMaterial({
-                    color: 0x00ffff,
-                    wireframe: true,
-                    transparent: true,
-                    opacity: 0.3,
-                    depthWrite: false,
-                });
-                const mesh = new THREE.Mesh(this.buildPlaneGeometry(plane.polygon), material);
-                mesh.matrixAutoUpdate = false;
-                this.gameManager.scene.add(mesh);
-                entry = { mesh, lastChanged: changed };
-                this.planeMeshes.set(plane, entry);
-            } else if (entry.lastChanged < changed) {
-                // 平面の形状が更新されたらジオメトリを作り直す
-                entry.mesh.geometry.dispose();
-                entry.mesh.geometry = this.buildPlaneGeometry(plane.polygon);
-                entry.lastChanged = changed;
-            }
-
-            entry.mesh.matrix.fromArray(pose.transform.matrix);
-            // ゆっくり明滅させてスキャンっぽく
-            const mat = entry.mesh.material as THREE.MeshBasicMaterial;
-            mat.opacity = 0.18 + 0.12 * (0.5 + 0.5 * Math.sin(performance.now() / 350));
-        });
-    }
-
-    // 平面ポリゴン（平面ローカル座標のXZ点列）を扇状に三角形分割する
-    private buildPlaneGeometry(polygon: { x: number; y: number; z: number }[]): THREE.BufferGeometry {
-        const verts: number[] = [];
-        for (let i = 1; i < polygon.length - 1; i++) {
-            verts.push(
-                polygon[0].x, polygon[0].y, polygon[0].z,
-                polygon[i].x, polygon[i].y, polygon[i].z,
-                polygon[i + 1].x, polygon[i + 1].y, polygon[i + 1].z,
-            );
-        }
-        const geometry = new THREE.BufferGeometry();
-        geometry.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
-        return geometry;
     }
 
     public getReticleMatrix(): THREE.Matrix4 | null {
