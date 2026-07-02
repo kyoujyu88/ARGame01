@@ -150,6 +150,8 @@ export class GameSystem {
 
     // フィーバー（コンボ5到達で発動。スコア2倍＆連射速度アップ）
     private feverUntil = 0;
+    // 同じコンボチェーン中に何度も再発動しないためのフラグ（コンボが切れるとリセット）
+    private feverTriggeredThisCombo = false;
     private static readonly FEVER_DURATION = 8000; // ms
     private static readonly FEVER_COMBO = 5;
 
@@ -159,6 +161,7 @@ export class GameSystem {
 
     private startFever() {
         this.feverUntil = performance.now() + GameSystem.FEVER_DURATION;
+        this.feverTriggeredThisCombo = true;
         this.uiManager.showFever(true);
         window.setTimeout(() => {
             if (!this.isFever()) this.uiManager.showFever(false);
@@ -185,8 +188,8 @@ export class GameSystem {
 
         this.uiManager.updateCombo(this.combo >= 2 ? `COMBO x${this.combo}　(${multiplier}倍)` : null);
 
-        // コンボ5到達でフィーバー発動
-        if (!fever && this.combo >= GameSystem.FEVER_COMBO) {
+        // コンボ5到達でフィーバー発動（同じコンボチェーンでは1回だけ）
+        if (!fever && !this.feverTriggeredThisCombo && this.combo >= GameSystem.FEVER_COMBO) {
             this.startFever();
         }
 
@@ -199,6 +202,7 @@ export class GameSystem {
 
     public resetCombo() {
         this.combo = 0;
+        this.feverTriggeredThisCombo = false;
         if (this.comboTimer !== null) { clearTimeout(this.comboTimer); this.comboTimer = null; }
         this.uiManager.updateCombo(null);
     }
