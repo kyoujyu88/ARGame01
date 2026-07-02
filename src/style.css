@@ -262,6 +262,30 @@ canvas {
   100% { transform: translateX(-50%) scale(1); }
 }
 
+/* フィーバー表示 */
+#fever-banner {
+  display: none;
+  position: absolute;
+  top: calc(190px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ff5533;
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  pointer-events: none;
+  z-index: 60;
+  text-shadow: 0 0 10px rgba(255, 80, 20, 0.9), 2px 2px 4px rgba(0, 0, 0, 0.9);
+}
+#fever-banner.active {
+  display: block;
+  animation: fever-pulse 0.45s ease-in-out infinite alternate;
+}
+@keyframes fever-pulse {
+  from { transform: translateX(-50%) scale(1); }
+  to { transform: translateX(-50%) scale(1.18); }
+}
+
 /* 命中マーカー（中央レティクルを一瞬赤く拡大） */
 #crosshair.hit {
   border-color: #ff3b3b;

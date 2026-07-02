@@ -46,6 +46,23 @@ export class GameSystem {
         });
         this.uiManager.onReset = () => this.resetProgress();
         this.refreshShopUI();
+        this.grantDailyBonus();
+    }
+
+    // 1日1回、起動時にボーナスポイントを付与する（毎日遊びたくなる仕掛け）
+    private grantDailyBonus() {
+        const KEY = 'argame01_daily';
+        const BONUS = 100;
+        try {
+            const today = new Date().toDateString();
+            if (localStorage.getItem(KEY) === today) return;
+            localStorage.setItem(KEY, today);
+            this.score += BONUS;
+            this.save();
+            this.uiManager.updateScore(this.score);
+            this.refreshShopUI();
+            this.uiManager.showResult(`🎁 デイリーボーナス！<br><b>+${BONUS}pt</b> ゲット！<br><span style="font-size:13px;color:#aaa;">毎日遊ぶともらえます</span>`);
+        } catch { /* noop */ }
     }
 
     // すべての進行データ（ポイント・購入・強化・装備・ベスト記録）を初期化する
@@ -131,6 +148,23 @@ export class GameSystem {
     private comboTimer: number | null = null;
     private static readonly COMBO_WINDOW = 3000; // この時間内に撃破すると継続(ms)
 
+    // フィーバー（コンボ5到達で発動。スコア2倍＆連射速度アップ）
+    private feverUntil = 0;
+    private static readonly FEVER_DURATION = 8000; // ms
+    private static readonly FEVER_COMBO = 5;
+
+    public isFever(): boolean {
+        return performance.now() < this.feverUntil;
+    }
+
+    private startFever() {
+        this.feverUntil = performance.now() + GameSystem.FEVER_DURATION;
+        this.uiManager.showFever(true);
+        window.setTimeout(() => {
+            if (!this.isFever()) this.uiManager.showFever(false);
+        }, GameSystem.FEVER_DURATION + 100);
+    }
+
     // === スコア／ポイント ===
     public addScore(points: number) {
         this.score += points;
@@ -143,11 +177,18 @@ export class GameSystem {
     // 標的撃破：コンボを進めて倍率付きで加点する。戻り値は演出用。
     public registerKill(basePoints: number): { awarded: number; multiplier: number; combo: number } {
         this.combo += 1;
-        const multiplier = Math.min(5, 1 + Math.floor((this.combo - 1) / 3));
+        const fever = this.isFever();
+        let multiplier = Math.min(5, 1 + Math.floor((this.combo - 1) / 3));
+        if (fever) multiplier *= 2; // フィーバー中はさらに2倍
         const awarded = basePoints * multiplier;
         this.addScore(awarded);
 
         this.uiManager.updateCombo(this.combo >= 2 ? `COMBO x${this.combo}　(${multiplier}倍)` : null);
+
+        // コンボ5到達でフィーバー発動
+        if (!fever && this.combo >= GameSystem.FEVER_COMBO) {
+            this.startFever();
+        }
 
         // コンボ継続タイマーをリセット
         if (this.comboTimer !== null) clearTimeout(this.comboTimer);

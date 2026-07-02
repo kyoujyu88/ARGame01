@@ -255,7 +255,21 @@ export class InteractionManager {
             if (!hitByProjectile || relativeVelocity <= 1.5) return;
 
             // 弾の威力（武器強化レベルで増える）だけ耐久を削る
-            const damage = (other.__damage as number) ?? 1;
+            let damage = (other.__damage as number) ?? 1;
+
+            // クリティカルヒット（12%）：ダメージ2倍＋派手な表示と強めの振動
+            if (Math.random() < 0.12) {
+                damage *= 2;
+                this.spawnTextPopup(
+                    new THREE.Vector3(body.position.x, body.position.y + 0.12, body.position.z),
+                    'CRITICAL!',
+                    '#ff5533',
+                );
+                this.vibrate(35);
+            } else {
+                this.vibrate(12);
+            }
+
             applyDamage(damage);
         });
 
@@ -273,12 +287,15 @@ export class InteractionManager {
             this.applyExplosionDamage(center, def.explosionRadius, Math.max(2, Math.ceil(def.health / 2)), body);
             this.spawnExplosionFlash(pos, def.explosionRadius, 0xffaa33);
             this.sound.explosion();
+            this.vibrate([20, 30, 60]);
         } else if (def.glass) {
             this.spawnExplosionFlash(pos, def.size * 2, 0xcceeff);
             this.sound.glass();
+            this.vibrate(25);
         } else {
             this.spawnExplosionFlash(pos, def.size * 4, def.emissive || def.color);
             this.sound.break();
+            this.vibrate(30);
         }
 
         // 本体を消去して破片に置き換える。
@@ -330,19 +347,25 @@ export class InteractionManager {
 
     // 撃破時に「+score」を3Dのフロートテキストで表示する
     private spawnScorePopup(position: THREE.Vector3, points: number, multiplier: number) {
+        const label = multiplier > 1 ? `+${points} x${multiplier}` : `+${points}`;
+        const color = multiplier > 1 ? '#ffd23f' : '#ffffff';
+        this.spawnTextPopup(position, label, color);
+    }
+
+    // 任意のテキストを3Dのフロート表示する（スコア/CRITICAL等）
+    private spawnTextPopup(position: THREE.Vector3, label: string, cssColor: string) {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
-        const label = multiplier > 1 ? `+${points} x${multiplier}` : `+${points}`;
-        ctx.font = 'bold 64px sans-serif';
+        ctx.font = 'bold 56px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.lineWidth = 8;
         ctx.strokeStyle = 'rgba(0,0,0,0.8)';
         ctx.strokeText(label, 128, 64);
-        ctx.fillStyle = multiplier > 1 ? '#ffd23f' : '#ffffff';
+        ctx.fillStyle = cssColor;
         ctx.fillText(label, 128, 64);
 
         const texture = new THREE.CanvasTexture(canvas);
@@ -356,6 +379,13 @@ export class InteractionManager {
             obj.position.y += 0.004; // ふわっと上昇
             (((obj as THREE.Sprite).material) as THREE.SpriteMaterial).opacity = 1 - t;
         });
+    }
+
+    // 振動フィードバック（対応端末のみ。iOS Safari等では無視される）
+    private vibrate(pattern: number | number[]) {
+        try {
+            navigator.vibrate?.(pattern as any);
+        } catch { /* noop */ }
     }
 
     // ヒット時の小さなスパーク（短命の発光球）
@@ -773,9 +803,10 @@ export class InteractionManager {
         // リロード中は撃てない
         if (this.reloading) return;
 
-        // 連射レート制限
+        // 連射レート制限（フィーバー中は2倍速で撃てる）
         const now = performance.now() / 1000;
-        if (now - this.lastShotAt < def.fireCooldown) return;
+        const cooldown = def.fireCooldown * (this.gameSystem.isFever() ? 0.5 : 1);
+        if (now - this.lastShotAt < cooldown) return;
 
         // 弾切れ → リロード開始
         if (this.ammoLeft <= 0) {
