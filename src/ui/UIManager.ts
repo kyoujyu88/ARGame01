@@ -63,9 +63,12 @@ export class UIManager {
                     <p class="hint-step"><span>③</span>「配置」で的を置く</p>
                     <p class="hint-step"><span>④</span> 画面タップ／「発射」で撃つ！</p>
                     <p class="hint-foot">右上の「?」でいつでも遊び方を確認できます</p>
+                    <p id="best-stats" class="hint-foot"></p>
                 </div>
 
                 <div id="combo-display"></div>
+
+                <div id="fever-banner">🔥 FEVER x2 🔥</div>
 
                 <!-- 一時通知（実績解除・ボーナス獲得など） -->
                 <div id="toast-container"></div>
@@ -113,7 +116,10 @@ export class UIManager {
                         <h3>コツ</h3>
                         <ul>
                             <li>連続で壊すと<b>コンボ</b>でスコア倍率アップ。</li>
+                            <li>コンボ5で<b>🔥フィーバー</b>！8秒間スコア2倍＆連射速度2倍。</li>
+                            <li>まれに<b>クリティカル</b>が出て2倍ダメージ。</li>
                             <li>爆発する的（ドラム缶等）は周囲を巻き込みます。</li>
+                            <li>毎日起動すると<b>🎁デイリーボーナス</b>。連続日数で最大200ptに増加。</li>
                             <li>音は右上の🔊でON/OFF。</li>
                         </ul>
                         <button id="help-close" class="hud-button" style="margin-top:14px;width:100%;">閉じる</button>
@@ -236,6 +242,17 @@ export class UIManager {
             }
         } catch { /* noop */ }
 
+        // ベスト記録を開始画面に表示（挑戦意欲を高める）
+        try {
+            const bestTime = Number(localStorage.getItem('argame01_best_time') ?? '0');
+            const bestWave = Number(localStorage.getItem('argame01_best_wave') ?? '0');
+            const stats = document.getElementById('best-stats');
+            if (stats && (bestTime > 0 || bestWave > 0)) {
+                stats.innerText = `🏆 ベスト記録：タイムアタック ${bestTime}pt ／ Wave ${bestWave}`;
+                stats.style.color = '#ffd23f';
+            }
+        } catch { /* noop */ }
+
         // 実績パネルの開閉
         const achvOverlay = document.getElementById('achv-overlay');
         document.getElementById('achv-btn')?.addEventListener('click', () => {
@@ -350,6 +367,12 @@ export class UIManager {
     public updateAmmo(text: string) {
         const el = document.getElementById('ammo-display');
         if (el) el.innerText = text;
+    }
+
+    // フィーバー表示のON/OFF
+    public showFever(on: boolean) {
+        const el = document.getElementById('fever-banner');
+        if (el) el.classList.toggle('active', on);
     }
 
     // コンボ表示（null で非表示）

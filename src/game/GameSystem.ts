@@ -250,6 +250,26 @@ export class GameSystem {
     private comboTimer: number | null = null;
     private static readonly COMBO_WINDOW = 3000; // この時間内に撃破すると継続(ms)
 
+    // フィーバー（コンボ5到達で発動。スコア2倍＆連射速度アップ）
+    private feverUntil = 0;
+    // 同じコンボチェーン中に何度も再発動しないためのフラグ（コンボが切れるとリセット）
+    private feverTriggeredThisCombo = false;
+    private static readonly FEVER_DURATION = 8000; // ms
+    private static readonly FEVER_COMBO = 5;
+
+    public isFever(): boolean {
+        return performance.now() < this.feverUntil;
+    }
+
+    private startFever() {
+        this.feverUntil = performance.now() + GameSystem.FEVER_DURATION;
+        this.feverTriggeredThisCombo = true;
+        this.uiManager.showFever(true);
+        window.setTimeout(() => {
+            if (!this.isFever()) this.uiManager.showFever(false);
+        }, GameSystem.FEVER_DURATION + 100);
+    }
+
     // === スコア／ポイント ===
     public addScore(points: number) {
         this.score += points;
@@ -262,7 +282,9 @@ export class GameSystem {
     // 標的撃破：コンボを進めて倍率付きで加点する。戻り値は演出用。
     public registerKill(basePoints: number): { awarded: number; multiplier: number; combo: number } {
         this.combo += 1;
-        const multiplier = Math.min(5, 1 + Math.floor((this.combo - 1) / 3));
+        const fever = this.isFever();
+        let multiplier = Math.min(5, 1 + Math.floor((this.combo - 1) / 3));
+        if (fever) multiplier *= 2; // フィーバー中はさらに2倍
         const awarded = basePoints * multiplier;
 
         // 統計を更新して実績を判定する（保存は addScore がまとめて行う）
@@ -276,6 +298,11 @@ export class GameSystem {
 
         this.uiManager.updateCombo(this.combo >= 2 ? `COMBO x${this.combo}　(${multiplier}倍)` : null);
 
+        // コンボ5到達でフィーバー発動（同じコンボチェーンでは1回だけ）
+        if (!fever && !this.feverTriggeredThisCombo && this.combo >= GameSystem.FEVER_COMBO) {
+            this.startFever();
+        }
+
         // コンボ継続タイマーをリセット
         if (this.comboTimer !== null) clearTimeout(this.comboTimer);
         this.comboTimer = window.setTimeout(() => this.resetCombo(), GameSystem.COMBO_WINDOW);
@@ -285,6 +312,7 @@ export class GameSystem {
 
     public resetCombo() {
         this.combo = 0;
+        this.feverTriggeredThisCombo = false;
         if (this.comboTimer !== null) { clearTimeout(this.comboTimer); this.comboTimer = null; }
         this.uiManager.updateCombo(null);
     }

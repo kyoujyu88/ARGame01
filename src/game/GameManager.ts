@@ -8,6 +8,8 @@ interface PhysicsEntry {
     mesh: THREE.Object3D;
     body: CANNON.Body;
     kind: ObjectKind;
+    // 弾の軌跡（トレイル）。projectile のみ持つ
+    trail?: { line: THREE.Line; positions: Float32Array };
 }
 
 export class GameManager {
@@ -131,6 +133,16 @@ export class GameManager {
         for (const obj of this.physicsObjects) {
             obj.mesh.position.copy(obj.body.position as unknown as THREE.Vector3);
             obj.mesh.quaternion.copy(obj.body.quaternion as unknown as THREE.Quaternion);
+
+            // トレイルの更新（先頭に現在位置、以降は1フレームずつ後ろへ）
+            if (obj.trail) {
+                const p = obj.trail.positions;
+                p.copyWithin(3, 0, p.length - 3);
+                p[0] = obj.mesh.position.x;
+                p[1] = obj.mesh.position.y;
+                p[2] = obj.mesh.position.z;
+                (obj.trail.line.geometry.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+            }
         }
 
         // 一時エフェクトの更新（寿命が来たら破棄）
@@ -174,7 +186,13 @@ export class GameManager {
         (body as any).__kind = kind;
         this.scene.add(mesh);
         this.physicsManager.addBody(body);
-        this.physicsObjects.push({ mesh, body, kind });
+        const entry: PhysicsEntry = { mesh, body, kind };
+
+        // 弾には軌跡（トレイル）を付けて爽快感を出す
+        if (kind === 'projectile') {
+            entry.trail = this.createTrail(mesh, body);
+        }
+        this.physicsObjects.push(entry);
 
         // 弾は古いものから自動的に消して、増えすぎを防ぐ
         if (kind === 'projectile') {
@@ -183,6 +201,31 @@ export class GameManager {
                 this.removeEntry(projectiles[0]);
             }
         }
+    }
+
+    // 弾の色を引き継いだトレイル（残像ライン）を生成する
+    private createTrail(mesh: THREE.Object3D, body: CANNON.Body): { line: THREE.Line; positions: Float32Array } {
+        const N = 16;
+        const positions = new Float32Array(N * 3);
+        for (let i = 0; i < N; i++) {
+            positions[i * 3] = body.position.x;
+            positions[i * 3 + 1] = body.position.y;
+            positions[i * 3 + 2] = body.position.z;
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        const color = ((mesh as THREE.Mesh).material as any)?.color?.getHex?.() ?? 0xffffff;
+        const material = new THREE.LineBasicMaterial({
+            color,
+            transparent: true,
+            opacity: 0.55,
+            blending: THREE.AdditiveBlending,
+            depthWrite: false,
+        });
+        const line = new THREE.Line(geometry, material);
+        line.frustumCulled = false;
+        this.scene.add(line);
+        return { line, positions };
     }
 
     // 配置したオブジェクトと弾をすべて消去する（AR終了時などに使用）
@@ -196,6 +239,12 @@ export class GameManager {
     private removeEntry(entry: PhysicsEntry) {
         this.scene.remove(entry.mesh);
         this.physicsManager.removeBody(entry.body);
+        // トレイルの破棄
+        if (entry.trail) {
+            this.scene.remove(entry.trail.line);
+            entry.trail.line.geometry.dispose();
+            (entry.trail.line.material as THREE.Material).dispose();
+        }
         // 子要素を含めてジオメトリ・マテリアルを破棄する（複合メッシュ対応）
         entry.mesh.traverse((obj) => {
             const m = obj as THREE.Mesh;
