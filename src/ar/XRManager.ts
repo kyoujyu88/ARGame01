@@ -167,7 +167,11 @@ export class XRManager {
                     const hit = hitTestResults[0];
                     const pose = hit.getPose(referenceSpace);
                     if (pose) {
+                        // reticle.visible は「配置位置を追跡できているか」を表すフラグとして維持する
+                        // （getReticleMatrix/getReticlePosition が参照する）。
+                        // 見た目の緑の輪は認識完了後は非表示にし、床に貼りつく円で混乱しないようにする。
                         this.reticle.visible = true;
+                        (this.reticle.material as THREE.MeshBasicMaterial).visible = !this.hasRecognizedOnce;
                         this.reticle.matrix.fromArray(pose.transform.matrix);
 
                         // 認識完了までは、その場所にワイヤーフレームの小三角形を散らす。
