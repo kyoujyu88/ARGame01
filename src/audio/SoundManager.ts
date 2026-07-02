@@ -39,11 +39,20 @@ export class SoundManager {
         return this.ctx;
     }
 
-    // 単純なトーン（周波数スライド対応）
-    private tone(freq: number, dur: number, type: OscillatorType, gain: number, slideTo?: number) {
+    // 端末を振動させる（対応端末のみ）。音と合わせた体感フィードバック用。
+    // ミュート中は振動も止める（設定を1つにまとめる）
+    private buzz(pattern: number | number[]) {
+        if (this.muted) return;
+        try {
+            navigator.vibrate?.(pattern);
+        } catch { /* noop */ }
+    }
+
+    // 単純なトーン（周波数スライド対応）。delay 秒後に鳴らすこともできる
+    private tone(freq: number, dur: number, type: OscillatorType, gain: number, slideTo?: number, delay = 0) {
         if (this.muted) return;
         const ctx = this.ensureCtx();
-        const t = ctx.currentTime;
+        const t = ctx.currentTime + delay;
         const osc = ctx.createOscillator();
         const g = ctx.createGain();
         osc.type = type;
@@ -92,10 +101,12 @@ export class SoundManager {
 
     hit() {
         this.tone(320, 0.07, 'triangle', 0.18, 140);
+        this.buzz(15);
     }
 
     break() {
         this.noiseBurst(0.25, 2200, 0.35);
+        this.buzz(35);
     }
 
     // ガラスが割れる高い「チャリン」音
@@ -104,10 +115,42 @@ export class SoundManager {
         this.tone(2600, 0.12, 'triangle', 0.12, 1400);
         this.tone(3300, 0.18, 'triangle', 0.1, 1800);
         this.noiseBurst(0.15, 6000, 0.18);
+        this.buzz(25);
     }
 
     explosion() {
         this.noiseBurst(0.5, 500, 0.5);
         this.tone(90, 0.5, 'sawtooth', 0.25, 40);
+        this.buzz([50, 30, 60]);
+    }
+
+    // 撃破音：コンボ数に応じて半音ずつ音程が上がる（連続撃破が気持ちよくなる）
+    kill(combo: number) {
+        const step = Math.min(Math.max(combo - 1, 0), 12);
+        const f = 520 * Math.pow(2, step / 12);
+        this.tone(f, 0.1, 'triangle', 0.14);
+        this.tone(f * 1.5, 0.14, 'triangle', 0.09, undefined, 0.05);
+    }
+
+    // ウェーブ開始の合図
+    waveStart() {
+        this.tone(440, 0.12, 'square', 0.12);
+        this.tone(660, 0.18, 'square', 0.12, undefined, 0.13);
+        this.buzz(30);
+    }
+
+    // 新記録のファンファーレ
+    fanfare() {
+        this.tone(523, 0.14, 'triangle', 0.16);
+        this.tone(659, 0.14, 'triangle', 0.16, undefined, 0.12);
+        this.tone(784, 0.14, 'triangle', 0.16, undefined, 0.24);
+        this.tone(1047, 0.4, 'triangle', 0.18, undefined, 0.36);
+        this.buzz([60, 60, 120]);
+    }
+
+    // 報酬ゲット音（実績解除・デイリーボーナス）
+    coin() {
+        this.tone(988, 0.08, 'square', 0.1);
+        this.tone(1319, 0.18, 'square', 0.1, undefined, 0.08);
     }
 }

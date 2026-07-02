@@ -226,6 +226,9 @@ export class InteractionManager {
         const applyDamage = (damage: number, showHitFeedback = true) => {
             if (broken) return;
 
+            // 弾の直撃のみ命中として記録する（爆風は showHitFeedback=false で来る）
+            if (showHitFeedback) this.gameSystem.registerHit();
+
             health -= damage;
             if (health <= 0) {
                 broken = true;
@@ -313,6 +316,8 @@ export class InteractionManager {
         // コンボ倍率つきで加点し、獲得スコアをポップアップ表示
         const result = this.gameSystem.registerKill(def.points);
         this.spawnScorePopup(pos, result.awarded, result.multiplier);
+        // コンボ数に応じて音程が上がる撃破音（破壊音に重ねる）
+        this.sound.kill(result.combo);
 
         // ゲームモード用の破壊コールバック
         const onDestroyed = (body as any).__onDestroyed as (() => void) | undefined;
@@ -819,6 +824,7 @@ export class InteractionManager {
             this.ammoLeft -= 1;
         }
         this.refreshAmmoDisplay();
+        this.gameSystem.registerShot(); // 命中率の統計用（トリガー1回=1発）
 
         // XRカメラの実際のワールド姿勢を使う（背景が消える＝弾が原点に湧く問題の対策）
         const { position: camPos, quaternion: camQuat } = this.gameManager.getCameraPose();
