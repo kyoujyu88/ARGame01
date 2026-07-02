@@ -48,22 +48,50 @@ export class UIManager {
                     </div>
                 </div>
 
-                <div id="mode-bar">
-                    <button class="mode-btn active" data-mode="free">フリー</button>
-                    <button class="mode-btn" data-mode="time">タイムアタック</button>
-                    <button class="mode-btn" data-mode="wave">ウェーブ</button>
-                </div>
-
                 <div id="mode-status"></div>
 
-                <div id="start-hint">
-                    <p class="hint-title">遊び方</p>
-                    <p class="hint-step"><span>①</span> 下の「START AR」でカメラを起動</p>
-                    <p class="hint-step"><span>②</span> 床や机を映す（緑の輪が出ればOK）</p>
-                    <p class="hint-step"><span>③</span>「配置」で的を置く</p>
-                    <p class="hint-step"><span>④</span> 画面タップ／「発射」で撃つ！</p>
-                    <p class="hint-foot">右上の「?」でいつでも遊び方を確認できます</p>
-                    <p id="best-stats" class="hint-foot"></p>
+                <!-- ホーム画面（AR起動前だけ表示） -->
+                <div id="home-hero">
+                    <h1 class="home-title">AR SHOOTER</h1>
+                    <p class="home-sub">現実世界が、キミの射撃場になる。</p>
+                    <div class="home-points">
+                        <span class="hp-label">POINTS</span>
+                        <span id="hero-points">0</span>
+                    </div>
+                    <div id="hero-best" class="home-best"></div>
+                </div>
+
+                <div id="home-menu">
+                    <button id="menu-shop" class="menu-card"><span class="mc-icon">🛒</span><span class="mc-label">ショップ</span></button>
+                    <button id="menu-achv" class="menu-card"><span class="mc-icon">🏆</span><span class="mc-label">実績</span></button>
+                    <button id="menu-help" class="menu-card"><span class="mc-icon">❓</span><span class="mc-label">遊び方</span></button>
+                    <button id="menu-sound" class="menu-card"><span class="mc-icon" id="menu-sound-icon">🔊</span><span class="mc-label">サウンド</span></button>
+                </div>
+
+                <p id="home-hint">▼ タップしてARスタート。床を映してスキャンしたら、的を壊しまくれ！</p>
+
+                <!-- ゲームモード選択（AR中に🎮ボタンから開く） -->
+                <div id="mode-modal">
+                    <div id="mode-panel">
+                        <h2>ゲームモード</h2>
+                        <button class="mode-card" data-mode="free">
+                            <span class="mode-icon">🎯</span>
+                            <span class="mode-body"><b>フリー</b><small>好きな場所に的を置いて撃つ、気ままな練習モード</small></span>
+                            <span class="mode-badge">選択中</span>
+                        </button>
+                        <button class="mode-card" data-mode="time">
+                            <span class="mode-icon">⏱</span>
+                            <span class="mode-body"><b>タイムアタック</b><small>60秒間、自動で湧く的を撃ちまくれ！<span id="mode-best-time"></span></small></span>
+                            <span class="mode-badge">選択中</span>
+                        </button>
+                        <button class="mode-card" data-mode="wave">
+                            <span class="mode-icon">🌊</span>
+                            <span class="mode-body"><b>ウェーブ</b><small>波状に迫る敵を殲滅。5波ごとにボス出現！<span id="mode-best-wave"></span></small></span>
+                            <span class="mode-badge">選択中</span>
+                        </button>
+                        <p class="mode-note">⏱/🌊 は床を認識してから始まります</p>
+                        <button id="mode-close" class="hud-button" style="width:100%;">閉じる</button>
+                    </div>
                 </div>
 
                 <div id="combo-display"></div>
@@ -96,12 +124,12 @@ export class UIManager {
                             <li><b>画面をタップ</b>、または「🔫 発射」で弾を撃ちます。</li>
                             <li>的を壊すと<b>ポイント</b>を獲得（硬い的ほど高得点）。</li>
                         </ol>
-                        <h3>モード</h3>
+                        <h3>モード（AR中に「🎮 モード」から選択）</h3>
                         <ul>
-                            <li><b>フリー</b>：自由に配置して撃つ練習モード。</li>
-                            <li><b>タイムアタック</b>：60秒で自動出現する的を壊してスコアを競う。</li>
-                            <li><b>ウェーブ</b>：倒すと次の波へ。5の倍数でボス出現。</li>
-                            <li>※タイム/ウェーブは床を映してから選んでください。</li>
+                            <li><b>🎯 フリー</b>：自由に配置して撃つ練習モード。</li>
+                            <li><b>⏱ タイムアタック</b>：60秒で自動出現する的を壊してスコアを競う。</li>
+                            <li><b>🌊 ウェーブ</b>：倒すと次の波へ。5の倍数でボス出現。</li>
+                            <li>※タイム/ウェーブは床を認識してから始まります。</li>
                         </ul>
                         <h3>ショップ（右上 Shop）</h3>
                         <ul>
@@ -146,12 +174,13 @@ export class UIManager {
 
                 <div id="bottom-panel">
                     <div id="ammo-display"></div>
-                    <!-- WebXRのボタンはThree.jsのARButtonを利用するかカスタムで作成 -->
-                    <div id="ar-button-container"></div>
+                    <button id="mode-open-btn" class="hud-button">🎮 モード</button>
                     <div id="action-buttons">
                         <button id="spawn-target-btn" class="hud-button action-btn">🎯 配置</button>
                         <button id="shoot-btn" class="hud-button action-btn">🔫 発射</button>
                     </div>
+                    <!-- WebXRのボタンはThree.jsのARButtonを利用（ホームでは大きなSTARTボタンに見せる） -->
+                    <div id="ar-button-container"></div>
                 </div>
 
                 <!-- ショップは AR の dom-overlay でも表示されるよう ui-container の内側に置く -->
@@ -216,22 +245,30 @@ export class UIManager {
         // 背景（バックドロップ）タップでも閉じる。裏のボタンへのタップ貫通も防ぐ
         backdrop?.addEventListener('click', closeShop);
 
-        // 効果音 ON/OFF トグル
+        // 効果音 ON/OFF トグル（AR中の小ボタンとホームのメニューカードの両方）
         const soundBtn = document.getElementById('sound-btn');
+        const menuSoundIcon = document.getElementById('menu-sound-icon');
         const renderSoundIcon = () => {
-            if (soundBtn) soundBtn.innerText = this.sound.isMuted() ? '🔇' : '🔊';
+            const icon = this.sound.isMuted() ? '🔇' : '🔊';
+            if (soundBtn) soundBtn.innerText = icon;
+            if (menuSoundIcon) menuSoundIcon.innerText = icon;
         };
         renderSoundIcon();
-        soundBtn?.addEventListener('click', () => {
+        const toggleSound = () => {
             this.sound.toggleMuted();
             renderSoundIcon();
-        });
+        };
+        soundBtn?.addEventListener('click', toggleSound);
+        document.getElementById('menu-sound')?.addEventListener('click', toggleSound);
 
-        // ヘルプ（遊び方）。初回は自動表示、以降は「?」ボタンで開く
+        // ホームメニュー（ショップ・実績・遊び方）
+        document.getElementById('menu-shop')?.addEventListener('click', openShop);
+
+        // ヘルプ（遊び方）。初回は自動表示、以降は「?」ボタン/ホームメニューで開く
         const helpOverlay = document.getElementById('help-overlay');
-        document.getElementById('help-btn')?.addEventListener('click', () => {
-            helpOverlay?.classList.add('active');
-        });
+        const openHelp = () => helpOverlay?.classList.add('active');
+        document.getElementById('help-btn')?.addEventListener('click', openHelp);
+        document.getElementById('menu-help')?.addEventListener('click', openHelp);
         document.getElementById('help-close')?.addEventListener('click', () => {
             helpOverlay?.classList.remove('active');
         });
@@ -242,30 +279,31 @@ export class UIManager {
             }
         } catch { /* noop */ }
 
-        // ベスト記録を開始画面に表示（挑戦意欲を高める）
-        try {
-            const bestTime = Number(localStorage.getItem('argame01_best_time') ?? '0');
-            const bestWave = Number(localStorage.getItem('argame01_best_wave') ?? '0');
-            const stats = document.getElementById('best-stats');
-            if (stats && (bestTime > 0 || bestWave > 0)) {
-                stats.innerText = `🏆 ベスト記録：タイムアタック ${bestTime}pt ／ Wave ${bestWave}`;
-                stats.style.color = '#ffd23f';
-            }
-        } catch { /* noop */ }
+        // ベスト記録の表示（ホーム＆モード選択カード）
+        this.refreshHomeStats();
 
         // 実績パネルの開閉
         const achvOverlay = document.getElementById('achv-overlay');
-        document.getElementById('achv-btn')?.addEventListener('click', () => {
-            achvOverlay?.classList.add('active');
-        });
+        const openAchv = () => achvOverlay?.classList.add('active');
+        document.getElementById('achv-btn')?.addEventListener('click', openAchv);
+        document.getElementById('menu-achv')?.addEventListener('click', openAchv);
         document.getElementById('achv-close')?.addEventListener('click', () => {
             achvOverlay?.classList.remove('active');
         });
 
-        // ゲームモード選択
-        document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
-            btn.addEventListener('click', () => {
-                const mode = btn.dataset.mode as GameMode;
+        // ゲームモード選択（🎮ボタンでモーダルを開き、カードで選ぶ）
+        const modeModal = document.getElementById('mode-modal');
+        document.getElementById('mode-open-btn')?.addEventListener('click', () => {
+            this.refreshHomeStats();
+            modeModal?.classList.add('active');
+        });
+        document.getElementById('mode-close')?.addEventListener('click', () => {
+            modeModal?.classList.remove('active');
+        });
+        document.querySelectorAll<HTMLElement>('.mode-card').forEach((card) => {
+            card.addEventListener('click', () => {
+                const mode = card.dataset.mode as GameMode;
+                modeModal?.classList.remove('active');
                 this.setActiveMode(mode);
                 this.onSelectMode?.(mode);
             });
@@ -275,13 +313,34 @@ export class UIManager {
         document.getElementById('result-close')?.addEventListener('click', () => {
             document.getElementById('result-overlay')?.classList.remove('active');
         });
+
+        // 初期モードはフリー
+        this.setActiveMode('free');
     }
 
-    // モードボタンのハイライトを更新
+    // モード選択カードのハイライト（選択中バッジ）を更新
     public setActiveMode(mode: GameMode) {
-        document.querySelectorAll<HTMLElement>('.mode-btn').forEach((btn) => {
-            btn.classList.toggle('active', btn.dataset.mode === mode);
+        document.querySelectorAll<HTMLElement>('.mode-card').forEach((card) => {
+            card.classList.toggle('active', card.dataset.mode === mode);
         });
+    }
+
+    // ホームとモード選択カードのベスト記録・ポイント表示を更新する
+    public refreshHomeStats() {
+        try {
+            const bestTime = Number(localStorage.getItem('argame01_best_time') ?? '0');
+            const bestWave = Number(localStorage.getItem('argame01_best_wave') ?? '0');
+            const heroBest = document.getElementById('hero-best');
+            if (heroBest) {
+                heroBest.innerText = (bestTime > 0 || bestWave > 0)
+                    ? `🏆 ベスト：タイムアタック ${bestTime}pt ／ Wave ${bestWave}`
+                    : '🏆 まずはARを起動して1体壊してみよう！';
+            }
+            const mbt = document.getElementById('mode-best-time');
+            if (mbt) mbt.innerText = bestTime > 0 ? `（ベスト ${bestTime}pt）` : '';
+            const mbw = document.getElementById('mode-best-wave');
+            if (mbw) mbw.innerText = bestWave > 0 ? `（ベスト Wave ${bestWave}）` : '';
+        } catch { /* noop */ }
     }
 
     // ゲームモード中のステータス（残り時間・Wave 等）。null で非表示。
@@ -407,6 +466,8 @@ export class UIManager {
         }
         const shopPoints = document.getElementById('shop-points');
         if (shopPoints) shopPoints.innerText = `${score} pt`;
+        const heroPoints = document.getElementById('hero-points');
+        if (heroPoints) heroPoints.innerText = String(score);
     }
 
     // 武器・標的の定義からショップDOMを動的に生成する
