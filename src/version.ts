@@ -1,3 +1,3 @@
 // アプリのバージョン情報（画面隅に小さく表示する用）。
 // 機能を追加したらここを更新する。
-export const APP_VERSION = 'v2.0.2';
+export const APP_VERSION = 'v2.1.0';

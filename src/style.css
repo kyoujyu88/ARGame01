@@ -55,81 +55,242 @@ canvas {
   font-size: 16px;
 }
 
-/* ゲームモード選択バー */
-#mode-bar {
+/* ================================
+   画面状態の切替（ホーム ⇔ AR HUD）
+   #ui-container.in-ar がAR中を表す
+   ================================ */
+
+/* AR中のみ表示する要素 */
+#ui-container:not(.in-ar) #top-panel { display: none !important; }
+#mode-open-btn { display: none; }
+#ui-container.in-ar #mode-open-btn { display: inline-block; }
+#ui-container.in-ar #crosshair { display: block; }
+#ui-container.in-ar #shoot-hint { display: block; }
+#ui-container.in-ar #ammo-display { display: block; }
+#ui-container.in-ar #action-buttons { display: flex; }
+
+/* ホームのみ表示する要素 */
+#ui-container.in-ar #home-hero,
+#ui-container.in-ar #home-menu,
+#ui-container.in-ar #home-hint { display: none; }
+
+/* ================================
+   ホーム画面
+   ================================ */
+#home-hero {
   position: absolute;
-  top: calc(64px + env(safe-area-inset-top));
+  top: calc(9% + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
-  display: flex;
-  gap: 8px;
-  padding: 0 12px;
-  box-sizing: border-box;
-  width: 100%;
-  justify-content: center;
-  pointer-events: auto;
-  z-index: 60;
-}
-.mode-btn {
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  color: #ddd;
-  padding: 8px 14px;
-  border-radius: 20px;
-  font-size: 13px;
-  line-height: 1.2;
-  white-space: nowrap;
-  cursor: pointer;
-}
-.mode-btn.active {
-  background: #00ffff;
-  color: #003;
-  border-color: #00ffff;
-  font-weight: bold;
-}
-
-/* 開始前の案内 */
-#start-hint {
-  position: absolute;
-  top: 42%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 86%;
-  max-width: 340px;
-  box-sizing: border-box;
-  background: rgba(20, 22, 32, 0.6);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 14px;
-  padding: 18px 18px 16px;
-  color: rgba(255, 255, 255, 0.92);
+  width: 90%;
+  max-width: 380px;
+  text-align: center;
   pointer-events: none;
   z-index: 55;
 }
-#start-hint .hint-title {
-  text-align: center;
-  font-size: 18px;
-  font-weight: bold;
-  margin-bottom: 12px;
-  color: #00ffff;
+.home-title {
+  margin: 0;
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, #00ffff 0%, #66aaff 55%, #cc66ff 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  filter: drop-shadow(0 0 14px rgba(0, 200, 255, 0.35));
 }
-#start-hint .hint-step {
+.home-sub {
+  margin: 6px 0 20px;
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: rgba(255, 255, 255, 0.65);
+}
+.home-points {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 14px;
-  line-height: 1.7;
-  margin: 4px 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 0 auto;
+  padding: 14px 30px;
+  width: fit-content;
+  background: rgba(18, 22, 34, 0.85);
+  border: 1px solid rgba(0, 255, 255, 0.35);
+  border-radius: 16px;
+  box-shadow: 0 0 24px rgba(0, 200, 255, 0.12) inset;
 }
-#start-hint .hint-step span {
-  flex-shrink: 0;
+.home-points .hp-label {
+  font-size: 11px;
+  letter-spacing: 3px;
+  color: rgba(0, 255, 255, 0.8);
+}
+#hero-points {
+  font-size: 40px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1.1;
+  text-shadow: 0 0 12px rgba(0, 200, 255, 0.5);
+}
+.home-best {
+  margin-top: 12px;
+  font-size: 12px;
+  color: #ffd23f;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+}
+
+/* ホームメニュー（ショップ・実績・遊び方・サウンド） */
+#home-menu {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  width: 90%;
+  max-width: 380px;
+  pointer-events: auto;
+  z-index: 55;
+}
+.menu-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 4px 12px;
+  background: rgba(24, 28, 42, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 14px;
+  color: #eee;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s;
+}
+.menu-card:active {
+  transform: scale(0.94);
+  border-color: #00ffff;
+}
+.menu-card .mc-icon { font-size: 26px; line-height: 1; }
+.menu-card .mc-label { font-size: 11px; letter-spacing: 1px; }
+
+/* ホーム下部のヒント */
+#home-hint {
+  position: absolute;
+  bottom: calc(120px + env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 86%;
+  max-width: 360px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.7;
+  color: rgba(255, 255, 255, 0.55);
+  pointer-events: none;
+  z-index: 55;
+}
+
+/* STARTボタン（Three.jsのARButtonをホームでは大きく見せる） */
+#ui-container:not(.in-ar) #ar-button-container button {
+  min-width: 260px !important;
+  padding: 18px 30px !important;
+  font-size: 20px !important;
+  font-weight: 900 !important;
+  letter-spacing: 2px !important;
+  color: #001018 !important;
+  background: linear-gradient(135deg, #00ffff, #33bbff) !important;
+  border: none !important;
+  border-radius: 999px !important;
+  opacity: 1 !important;
+  box-shadow: 0 6px 28px rgba(0, 200, 255, 0.45);
+  animation: start-glow 1.6s ease-in-out infinite alternate;
+}
+@keyframes start-glow {
+  from { box-shadow: 0 6px 22px rgba(0, 200, 255, 0.35); transform: scale(1); }
+  to { box-shadow: 0 6px 36px rgba(0, 220, 255, 0.65); transform: scale(1.03); }
+}
+/* AR中は控えめな STOP ボタン */
+#ui-container.in-ar #ar-button-container button {
+  padding: 8px 18px !important;
+  font-size: 12px !important;
+  border-radius: 999px !important;
+  background: rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.4) !important;
+  color: #ddd !important;
+  opacity: 1 !important;
+}
+
+/* ================================
+   ゲームモード選択モーダル
+   ================================ */
+#mode-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 2250;
+  justify-content: center;
+  align-items: center;
+  pointer-events: auto;
+}
+#mode-modal.active { display: flex; }
+#mode-panel {
+  background: #12121c;
+  border: 2px solid #00ffff;
+  border-radius: 16px;
+  padding: 20px;
+  width: 88%;
+  max-width: 400px;
+  box-sizing: border-box;
+}
+#mode-panel h2 {
+  margin: 0 0 14px;
+  text-align: center;
   color: #00ffff;
+  font-size: 20px;
+  letter-spacing: 2px;
+}
+.mode-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 12px;
+  color: #eee;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s, border-color 0.15s, background 0.15s;
+}
+.mode-card:active { transform: scale(0.97); }
+.mode-card.active {
+  border-color: #00ffff;
+  background: rgba(0, 255, 255, 0.08);
+}
+.mode-card .mode-icon { font-size: 28px; flex-shrink: 0; }
+.mode-card .mode-body { flex: 1; line-height: 1.45; }
+.mode-card .mode-body b { font-size: 16px; }
+.mode-card .mode-body small { display: block; font-size: 12px; color: rgba(255, 255, 255, 0.65); }
+.mode-card .mode-badge {
+  display: none;
+  flex-shrink: 0;
+  padding: 3px 8px;
+  background: #00ffff;
+  color: #003;
+  border-radius: 999px;
+  font-size: 10px;
   font-weight: bold;
 }
-#start-hint .hint-foot {
-  margin-top: 12px;
+.mode-card.active .mode-badge { display: inline-block; }
+.mode-note {
+  margin: 4px 0 12px;
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
   text-align: center;
+  color: rgba(255, 255, 255, 0.5);
 }
 
 /* ヘルプ（遊び方）モーダル */

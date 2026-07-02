@@ -48,48 +48,30 @@ export class XRManager {
 
         this.setupReticle();
 
-        // ARセッションの開始・終了イベントを監視
+        // ARセッションの開始・終了イベントを監視。
+        // 画面の切替（ホーム⇔AR HUD）は #ui-container の .in-ar クラスでCSS側が行う
         this.gameManager.renderer.xr.addEventListener('sessionstart', () => {
+            document.getElementById('ui-container')?.classList.add('in-ar');
+
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'flex';
-
-            // 発射時の照準（中央の十字レティクル）とタップ操作ヒントはAR中のみ表示する
-            const crosshair = document.getElementById('crosshair');
-            if (crosshair) crosshair.style.display = 'block';
-            const shootHint = document.getElementById('shoot-hint');
-            if (shootHint) shootHint.style.display = 'block';
-
-            // 配置・発射ボタンと弾薬表示はAR中のみ表示する
-            const actionButtons = document.getElementById('action-buttons');
-            if (actionButtons) actionButtons.style.display = 'flex';
-            const ammo = document.getElementById('ammo-display');
-            if (ammo) ammo.style.display = 'block';
-            // 開始前の案内は隠す
-            const startHint = document.getElementById('start-hint');
-            if (startHint) startHint.style.display = 'none';
 
             // 新しいセッションではスキャン演出を再び出す
             this.hasRecognizedOnce = false;
         });
 
         this.gameManager.renderer.xr.addEventListener('sessionend', () => {
+            document.getElementById('ui-container')?.classList.remove('in-ar');
+
             const scanOverlay = document.getElementById('scan-overlay');
             if (scanOverlay) scanOverlay.style.display = 'none';
 
-            // セッション終了時はゲーム用のUIを隠す
-            const actionButtons = document.getElementById('action-buttons');
-            if (actionButtons) actionButtons.style.display = 'none';
-            const ammo = document.getElementById('ammo-display');
-            if (ammo) ammo.style.display = 'none';
-            const startHint = document.getElementById('start-hint');
-            if (startHint) startHint.style.display = 'block';
-
-            // レティクル（平面マーカー・中央照準）も隠す
+            // レティクル（平面マーカー）を隠す
             if (this.reticle) this.reticle.visible = false;
-            const crosshair = document.getElementById('crosshair');
-            if (crosshair) crosshair.style.display = 'none';
-            const shootHint = document.getElementById('shoot-hint');
-            if (shootHint) shootHint.style.display = 'none';
+
+            // モード選択モーダルが開いたままなら閉じる
+            const modeModal = document.getElementById('mode-modal');
+            if (modeModal) modeModal.classList.remove('active');
 
             // 配置した標的や弾をすべて消去する（AR終了後に残り続ける問題の対策）
             this.gameManager.clearAllObjects();
